@@ -137,7 +137,13 @@
 
 **全语料融合结果（scripts/audit_figures.py，2026-11-15）**：164 个区域中 **149 个（91%）来自 layout:docling**，启发式回退 12 个（7%，全部显式标记）+ legacy 1 个（带人工数据的演示曲线，受保护保留）；带图注名区域 71 个，另新增 93 个 Unnamed 版面块候选（供人工筛选）。矢量图重灾论文 P-aa760664 从"3 个全盲盒"变为 3/3 版面区域。**验收线"回退占比 <10% 且全部显式标记"达成**（38% → 7%）。
 
-**待办**：P3 图区金标准 20 图 IoU 评估；P4 MinerU 扫描 OCR；P5 chart2csv（已纳入本期，待 P3 后启动）。
+**P3 工具链（已交付，待人工标注）**：scripts/make_region_worksheet.py 已生成 24 份标注工作表（红色 pt 标尺；蓝框=现有 SEELS 区域，绿框=docling 版面块，橙虚线=图注）+ data/gold/regions_gold_TEMPLATE.json 模板；人工填写 gold_bbox 后运行 python -m seels gold-regions --gold <文件> 即得逐项与汇总 IoU 报告（验收线 IoU≥0.8）。评估逻辑由 tests/test_gold_regions.py 守护（PASS/FAIL/MISSING/SKIPPED 判定）。
+
+**P4 MinerU 扫描 OCR（已实现）**：mineru==4.2.2 安装于 D:\seels-tools\mineru-venv（ASCII 路径，模型经 HF_HOME / MODELSCOPE_CACHE 重定向 D 盘，basic 档权重 ~0.9GB 首次运行下载）。组件：scripts/ocr_worker.py（子进程调 mineru-kit parse → middle_json → span bbox 按 token 比例拆分为 top_left_pts 词框，防御性递归解析 schema）+ seels/parsing/ocr_provider.py（sha256 键控 sidecar 缓存、页级合并、sha 不符拒用）+ parsing.pipeline.augment_ocr（needs_ocr → ocr_done，ocr_meta 留痕，parse.json 原子更新）+ CLI：python -m seels ocr REF [--force]。证据纪律：OCR 页证据 source_type=ocr → QC C7 自动路由 needs_human_review（tests/test_ocr.py 2 项密闭测试守护全链路；真实引擎 e2e 见 scripts/demo_ocr.py，结果跑完后补录于此）。
+
+**P5 chart2csv（已实现通道，本机硬件受阻——如实记录）**：docling 图表数值化依赖 granite-vision-4.1-4b 权重 ≈4.96GB；实测 C 盘仅剩 3.8GB 下载失败（HF_HOME 可迁 D 盘解决磁盘），但机器 15.7GB 内存当前仅 ~2.1GB 空闲，加载期已出现 67MB 内存分配失败，4B VLM 的 CPU 推理在本机不可行。--charts 参数、provider 开关、独立 sidecar（-charts 后缀）均已实现并入库，满足任一条件即可启用：(a) 重启释放内存 + HF_HOME 指向 D 盘（预计仍缓慢：CPU 上每图分钟级）；(b) 远程 VLM 后端（LM Studio / vLLM API）；(c) GPU 机器。期间曲线数值仍走人工校准/点取/WPD 导入闭环。
+
+**待办**：P3 人工标注 24 图 → gold-regions 正式验收；P4 真实 e2e 结果补录；P5 待硬件/远程后端条件满足后启用。
 
 ## 7. 决策点（原文存档；四项决策已全部确认，见 §6 首行）
 

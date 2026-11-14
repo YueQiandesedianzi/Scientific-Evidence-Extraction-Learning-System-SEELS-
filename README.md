@@ -127,7 +127,9 @@ python -m seels figures REF              # 图区检测 -> 曲线记录
 python -m seels qc REF                   # 七项质量检查
 python -m seels cards REF                # 生成六维学习卡
 python -m seels export --fmt both        # CSV + Excel + ML 数据集（--paper 限定单篇，--out 指定目录）
-python -m seels gold-compare REF --gold data/gold/xxx.json    # 金标准误差对照（CSV+JSON 报告）
+python -m seels ocr REF                  # 扫描件 OCR（MinerU 可选引擎，见 requirements-layout.txt）
+python -m seels gold-compare REF --gold data/gold/xxx.json    # 数值金标准误差对照（CSV+JSON 报告）
+python -m seels gold-regions --gold data/gold/regions_gold_*.json  # 图区金标准 IoU 评估
 python -m seels serve                    # 复核与学习 Web UI
 ```
 

@@ -175,7 +175,7 @@ class RuleExtractor:
                                   "page": page["page_no"], "quote": None})
                 continue
             if st == "needs_ocr":
-                uncertain.append({"field": "page", "reason": "page_needs_ocr_not_bundled",
+                uncertain.append({"field": "page", "reason": "page_needs_ocr_run_seels_ocr",
                                   "page": page["page_no"], "quote": None})
                 continue
             self._extract_tables(page, ctx)
@@ -382,6 +382,7 @@ class RuleExtractor:
     # ------------------------------------------------------------------
     def _extract_text(self, page: dict, ctx) -> None:
         page_no = page["page_no"]
+        src_type = "ocr" if page.get("status") == "ocr_done" else "native_text"
         # match on NFKC-normalized text so subscript/superscript glyph variants
         # (T\u2081 -> T1, \u209a -> p) unify with the word list used for grounding
         text = normalize_text(page.get("text") or "")
@@ -426,7 +427,7 @@ class RuleExtractor:
                 ev = ctx["add_ev"](page=page_no, bbox=bbox, quote_text=matched or quote,
                                    element_kind="text",
                                    element_ref="Text p%d [%g,%g]" % (page_no, bbox[0], bbox[1]),
-                                   source_type="native_text", extraction_method=self.name)
+                                   source_type=src_type, extraction_method=self.name)
                 sent = next((s for s in sentences if normalize_text(quote)[:40] in normalize_text(s)), quote)
                 conds = self._conditions_from_text(sent, ev)
                 mm = METHOD_RE.search(sent)

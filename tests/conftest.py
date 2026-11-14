@@ -11,6 +11,30 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 
+@pytest.fixture(autouse=True)
+def _isolate_workdirs(tmp_path):
+    """Redirect every derived-data directory into a PER-TEST tmp space.
+
+    Without this, deterministic fixtures (synth/scan PDFs) would resume stale
+    parse.json/sidecars across tests and runs (same sha -> same paper_id ->
+    same cache path), leaking state between tests and into the dev database.
+    """
+    from seels import config
+    root = tmp_path / "seels-data"
+    root.mkdir(parents=True, exist_ok=True)
+    config.DATA_DIR = root
+    config.WORK_DIR = root / "work"
+    config.RENDER_DIR = config.WORK_DIR / "renders"
+    config.CURVE_DIR = config.WORK_DIR / "curves"
+    config.EXPORT_DIR = config.WORK_DIR / "exports"
+    config.PAPERS_DIR = root / "papers"
+    config.GOLD_DIR = root / "gold"
+    config.DB_PATH = config.WORK_DIR / "test.sqlite3"
+    for d in (config.WORK_DIR, config.RENDER_DIR, config.CURVE_DIR, config.EXPORT_DIR):
+        d.mkdir(parents=True, exist_ok=True)
+    yield
+
+
 def _build_synth(path: Path) -> None:
     from fpdf import FPDF
     import matplotlib

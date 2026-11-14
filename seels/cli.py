@@ -138,6 +138,30 @@ def cmd_gold_compare(args, db):
         print("  report:", f)
 
 
+def cmd_ocr(args, db):
+    from .parsing.pipeline import augment_ocr
+    for paper in _resolve_papers(db, args.ref):
+        try:
+            r = augment_ocr(db, paper["paper_id"], force=args.force)
+            print("%s -> OCR augmented %d page(s) %s" % (
+                paper["paper_id"], r["augmented"],
+                ("remaining needs_ocr: %s" % r["remaining_needs_ocr"])
+                if r.get("remaining_needs_ocr") else ""))
+        except Exception as ex:
+            print("%s -> OCR failed: %s" % (paper["paper_id"], repr(ex)[:200]))
+
+
+def cmd_gold_regions(args, db):
+    import json as _json
+    from .gold_regions import compare_regions, write_region_report
+    gold = _json.loads(Path(args.gold).read_text(encoding="utf-8"))
+    report = compare_regions(db, gold)
+    out = args.out or str(config.EXPORT_DIR / "regions_gold")
+    for f in write_region_report(report, out):
+        print("report:", f)
+    print(_json.dumps(report["summary"], ensure_ascii=False))
+
+
 def cmd_serve(args, db):
     from .ui.server import main as serve_main
     serve_main(host=args.host, port=args.port)
@@ -209,6 +233,16 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--gold", required=True)
     p.add_argument("--out", help="output prefix")
     p.set_defaults(fn=cmd_gold_compare)
+
+    p = sub.add_parser("ocr", help="OCR needs_ocr pages via MinerU (P4)")
+    p.add_argument("ref")
+    p.add_argument("--force", action="store_true", help="re-OCR pages already ocr_done")
+    p.set_defaults(fn=cmd_ocr)
+
+    p = sub.add_parser("gold-regions", help="evaluate figure regions against human gold boxes")
+    p.add_argument("--gold", required=True, help="filled regions_gold_*.json")
+    p.add_argument("--out", help="output prefix")
+    p.set_defaults(fn=cmd_gold_regions)
 
     p = sub.add_parser("serve", help="start review web UI")
     p.add_argument("--host", default=None)

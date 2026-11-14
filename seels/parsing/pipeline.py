@@ -260,6 +260,56 @@ def ingest(db, pdf_path: str, force: bool = False, meta: Optional[dict] = None) 
             SECONDARY.close(sdoc)
 
 
+def augment_ocr(db, paper_id: str, provider=None, force: bool = False) -> dict:
+    """Fill needs_ocr pages with MinerU OCR words (docs/06 P4).
+
+    Updates parse.json in place (atomic): page.status needs_ocr -> ocr_done,
+    words/text/char_count from OCR, ocr_meta recorded. Downstream evidence from
+    these pages must carry source_type='ocr' (rules extractor does this), which
+    QC check C7 routes to needs_human_review automatically.
+    """
+    paper = db.get_paper(paper_id)
+    if not paper:
+        raise KeyError(paper_id)
+    parse_doc = load_parse(paper_id)
+    if not parse_doc:
+        raise RuntimeError("paper %s not parsed yet" % paper_id)
+    todo = [p["page_no"] for p in parse_doc.get("pages") or []
+            if p.get("status") == "needs_ocr" or (force and p.get("status") == "ocr_done")]
+    if not todo:
+        return {"augmented": 0, "pages": []}
+    if provider is None:
+        from .ocr_provider import MinerUOcrProvider
+        provider = MinerUOcrProvider()
+    result = provider.ocr_pages(paper, todo, force=force)
+    by_no = {p["page_no"]: p for p in result.get("pages") or []}
+    n = 0
+    for pg in parse_doc.get("pages") or []:
+        o = by_no.get(pg["page_no"])
+        if not o:
+            continue
+        prev_status = pg.get("status")
+        pg["words"] = o.get("words") or []
+        pg["text"] = o.get("text") or ""
+        pg["char_count"] = len(pg["text"].strip())
+        pg["status"] = "ocr_done"
+        pg["engine"] = "mineru-ocr"
+        pg["ocr_meta"] = {"engine": "mineru", "tier": getattr(provider, "tier", "basic"),
+                          "prev_status": prev_status,
+                          "word_boxes": "proportional_token_split(span_bbox)"}
+        pg.setdefault("warnings", []).append(
+            "OCR text: word boxes are proportional splits of span bboxes (approximate)")
+        n += 1
+        db.log_parse(paper_id, pg["page_no"], "mineru-ocr", "info", "ocr_augmented",
+                     "chars=%d words=%d" % (pg["char_count"], len(pg["words"])))
+    parse_doc["updated_at"] = utc_now()
+    _atomic_write_json(parse_json_path(paper_id), parse_doc)
+    remaining = [p["page_no"] for p in parse_doc.get("pages") or []
+                 if p.get("status") == "needs_ocr"]
+    db.update_paper(paper_id, parse_status=("parsed" if not remaining else "partial"))
+    return {"augmented": n, "pages": sorted(by_no), "remaining_needs_ocr": remaining}
+
+
 def render_page_image(paper: dict, page_no: int, dpi: int = 144) -> Path:
     """Render one page to a cached PNG (never touches the source PDF)."""
     paper_id = paper["paper_id"]

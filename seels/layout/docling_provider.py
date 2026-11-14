@@ -27,19 +27,21 @@ class DoclingLayoutProvider:
     name = "docling"
 
     def __init__(self, python_exe: str = None, worker: str = None, ocr: bool = False,
-                 tables: bool = False, timeout: int = 3600):
+                 tables: bool = False, charts: bool = False, timeout: int = 7200):
         self.python_exe = python_exe or os.environ.get("SEELS_LAYOUT_PYTHON",
                                                        DEFAULT_LAYOUT_PY)
         self.worker = worker or str(Path(config.BASE_DIR) / "scripts" / "layout_worker.py")
         self.ocr = ocr
         self.tables = tables      # TableFormer is slow on CPU; figure regions don't need it
+        self.charts = charts      # granite_vision chart2csv; heavy on CPU, opt-in
         self.timeout = timeout
 
     def available(self) -> bool:
         return Path(self.python_exe).exists() and Path(self.worker).exists()
 
     def analyze(self, paper: dict, force: bool = False) -> dict:
-        engine = self.name + ("-ocr" if self.ocr else "") + ("-tab" if self.tables else "")
+        engine = (self.name + ("-ocr" if self.ocr else "")
+                  + ("-tab" if self.tables else "") + ("-charts" if self.charts else ""))
         out = sidecar_path(paper["sha256"], engine)
         if out.exists() and not force:
             try:
@@ -60,6 +62,8 @@ class DoclingLayoutProvider:
             cmd.append("--ocr")
         if not self.tables:
             cmd.append("--no-tables")
+        if self.charts:
+            cmd.append("--charts")
         p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
                            errors="replace", env=env, timeout=self.timeout,
                            stdin=subprocess.DEVNULL)

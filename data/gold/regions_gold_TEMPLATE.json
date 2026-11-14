@@ -1,0 +1,591 @@
+{
+  "_instructions": "Fill gold_bbox=[x0,y0,x1,y1] in PDF points, top-left origin, using the red pt rulers on each worksheet PNG (or the UI page render). Judge the TRUE figure extent (plot area incl. axis labels, excl. caption text). Leave gold_bbox null to skip an item. Then: python -m seels gold-regions --gold <this file>.",
+  "annotator": "human:<name>  (REQUIRED: region gold must be human-judged)",
+  "items": [
+    {
+      "id": "RG-001",
+      "paper_id": "P-a160c171e15d68f3",
+      "page": 3,
+      "figure_ref": "Figure 1",
+      "curve_id": "C-ca43597defbc",
+      "worksheet_png": "E:\\开发\\SEELS\\data\\work\\region_worksheet\\RG-001_P-a160c171e15d68f3_p3.png",
+      "our_region": [
+        317.7,
+        76.1,
+        561.2,
+        555.0
+      ],
+      "our_region_source": "layout:docling",
+      "layout_blocks": [
+        [
+          317.7,
+          76.1,
+          561.2,
+          555.0
+        ]
+      ],
+      "gold_bbox": null,
+      "gold_note": ""
+    },
+    {
+      "id": "RG-002",
+      "paper_id": "P-c723f4e060c47d3f",
+      "page": 2,
+      "figure_ref": "Figure 1",
+      "curve_id": "C-4b17ddafa5a2",
+      "worksheet_png": "E:\\开发\\SEELS\\data\\work\\region_worksheet\\RG-002_P-c723f4e060c47d3f_p2.png",
+      "our_region": [
+        84.7,
+        53.6,
+        534.8,
+        526.6
+      ],
+      "our_region_source": "layout:docling",
+      "layout_blocks": [
+        [
+          84.7,
+          53.6,
+          534.8,
+          526.6
+        ]
+      ],
+      "gold_bbox": null,
+      "gold_note": ""
+    },
+    {
+      "id": "RG-003",
+      "paper_id": "P-cb4bf1add0ff7a6c",
+      "page": 2,
+      "figure_ref": "Figure 1",
+      "curve_id": "C-8ee066737bcb",
+      "worksheet_png": "E:\\开发\\SEELS\\data\\work\\region_worksheet\\RG-003_P-cb4bf1add0ff7a6c_p2.png",
+      "our_region": [
+        53.9,
+        51.4,
+        562.4,
+        243.1
+      ],
+      "our_region_source": "layout:docling",
+      "layout_blocks": [
+        [
+          53.9,
+          51.4,
+          562.4,
+          243.1
+        ]
+      ],
+      "gold_bbox": null,
+      "gold_note": ""
+    },
+    {
+      "id": "RG-004",
+      "paper_id": "P-437796ec2d1fa90c",
+      "page": 1,
+      "figure_ref": "Figure 1",
+      "curve_id": "C-ed84c18d9329",
+      "worksheet_png": "E:\\开发\\SEELS\\data\\work\\region_worksheet\\RG-004_P-437796ec2d1fa90c_p1.png",
+      "our_region": [
+        317.9,
+        485.5,
+        560.9,
+        614.1
+      ],
+      "our_region_source": "layout:docling",
+      "layout_blocks": [
+        [
+          317.9,
+          485.5,
+          560.9,
+          614.1
+        ]
+      ],
+      "gold_bbox": null,
+      "gold_note": ""
+    },
+    {
+      "id": "RG-005",
+      "paper_id": "P-0084ce71891e02bd",
+      "page": 2,
+      "figure_ref": "Figure 1",
+      "curve_id": "C-448f0702542e",
+      "worksheet_png": "E:\\开发\\SEELS\\data\\work\\region_worksheet\\RG-005_P-0084ce71891e02bd_p2.png",
+      "our_region": [
+        53.7,
+        53.2,
+        561.7,
+        184.5
+      ],
+      "our_region_source": "layout:docling",
+      "layout_blocks": [
+        [
+          53.7,
+          53.2,
+          561.7,
+          184.5
+        ]
+      ],
+      "gold_bbox": null,
+      "gold_note": ""
+    },
+    {
+      "id": "RG-006",
+      "paper_id": "P-aa760664b1f01846",
+      "page": 2,
+      "figure_ref": "Figure 1",
+      "curve_id": "C-6c5c6943b385",
+      "worksheet_png": "E:\\开发\\SEELS\\data\\work\\region_worksheet\\RG-006_P-aa760664b1f01846_p2.png",
+      "our_region": [
+        86.1,
+        49.9,
+        264.8,
+        517.1
+      ],
+      "our_region_source": "layout:docling",
+      "layout_blocks": [
+        [
+          86.1,
+          49.9,
+          264.8,
+          517.1
+        ]
+      ],
+      "gold_bbox": null,
+      "gold_note": ""
+    },
+    {
+      "id": "RG-007",
+      "paper_id": "P-e053d93148e634e3",
+      "page": 3,
+      "figure_ref": "Figure 1",
+      "curve_id": "C-e59967a65740",
+      "worksheet_png": "E:\\开发\\SEELS\\data\\work\\region_worksheet\\RG-007_P-e053d93148e634e3_p3.png",
+      "our_region": [
+        108.0,
+        86.3,
+        498.8,
+        220.0
+      ],
+      "our_region_source": "layout:docling",
+      "layout_blocks": [
+        [
+          108.0,
+          86.3,
+          498.8,
+          220.0
+        ]
+      ],
+      "gold_bbox": null,
+      "gold_note": ""
+    },
+    {
+      "id": "RG-008",
+      "paper_id": "P-6de89c73133970da",
+      "page": 1,
+      "figure_ref": "Figure 1",
+      "curve_id": "C-bfdb47648b51",
+      "worksheet_png": "E:\\开发\\SEELS\\data\\work\\region_worksheet\\RG-008_P-6de89c73133970da_p1.png",
+      "our_region": [
+        326.2,
+        293.4,
+        561.2,
+        503.3
+      ],
+      "our_region_source": "layout:docling",
+      "layout_blocks": [
+        [
+          326.2,
+          293.4,
+          561.2,
+          503.3
+        ]
+      ],
+      "gold_bbox": null,
+      "gold_note": ""
+    },
+    {
+      "id": "RG-009",
+      "paper_id": "P-6a7c7dcf34a4b009",
+      "page": 3,
+      "figure_ref": "Figure 1",
+      "curve_id": "C-1f4458ca3f4b",
+      "worksheet_png": "E:\\开发\\SEELS\\data\\work\\region_worksheet\\RG-009_P-6a7c7dcf34a4b009_p3.png",
+      "our_region": [
+        84.1,
+        316.9,
+        505.4,
+        557.8
+      ],
+      "our_region_source": "layout:docling",
+      "layout_blocks": [
+        [
+          84.1,
+          316.9,
+          505.4,
+          557.8
+        ]
+      ],
+      "gold_bbox": null,
+      "gold_note": ""
+    },
+    {
+      "id": "RG-010",
+      "paper_id": "P-455fe33f2b5fab9a",
+      "page": 7,
+      "figure_ref": "Figure 1",
+      "curve_id": "C-185faf20a453",
+      "worksheet_png": "E:\\开发\\SEELS\\data\\work\\region_worksheet\\RG-010_P-455fe33f2b5fab9a_p7.png",
+      "our_region": [
+        62.0,
+        20.0,
+        550.02,
+        87.8
+      ],
+      "our_region_source": "heuristic_fallback",
+      "layout_blocks": [],
+      "gold_bbox": null,
+      "gold_note": ""
+    },
+    {
+      "id": "RG-011",
+      "paper_id": "P-9622b04f37cdc7ac",
+      "page": 3,
+      "figure_ref": "Figure 1",
+      "curve_id": "C-b6591856e909",
+      "worksheet_png": "E:\\开发\\SEELS\\data\\work\\region_worksheet\\RG-011_P-9622b04f37cdc7ac_p3.png",
+      "our_region": [
+        324.1,
+        64.8,
+        554.9,
+        144.0
+      ],
+      "our_region_source": "layout:docling",
+      "layout_blocks": [
+        [
+          324.1,
+          64.8,
+          554.9,
+          144.0
+        ]
+      ],
+      "gold_bbox": null,
+      "gold_note": ""
+    },
+    {
+      "id": "RG-012",
+      "paper_id": "P-94caabbffbaa9bc7",
+      "page": 4,
+      "figure_ref": "Figure 1",
+      "curve_id": "C-6d436af4f29c",
+      "worksheet_png": "E:\\开发\\SEELS\\data\\work\\region_worksheet\\RG-012_P-94caabbffbaa9bc7_p4.png",
+      "our_region": [
+        88.9,
+        74.9,
+        523.7,
+        307.7
+      ],
+      "our_region_source": "layout:docling",
+      "layout_blocks": [
+        [
+          88.9,
+          74.9,
+          523.7,
+          307.7
+        ]
+      ],
+      "gold_bbox": null,
+      "gold_note": ""
+    },
+    {
+      "id": "RG-013",
+      "paper_id": "P-a160c171e15d68f3",
+      "page": 5,
+      "figure_ref": "Figure 2",
+      "curve_id": "C-83b53bf55e9a",
+      "worksheet_png": "E:\\开发\\SEELS\\data\\work\\region_worksheet\\RG-013_P-a160c171e15d68f3_p5.png",
+      "our_region": [
+        62.1,
+        60.5,
+        555.0,
+        418.9
+      ],
+      "our_region_source": "layout:docling",
+      "layout_blocks": [
+        [
+          62.1,
+          60.5,
+          555.0,
+          418.9
+        ]
+      ],
+      "gold_bbox": null,
+      "gold_note": ""
+    },
+    {
+      "id": "RG-014",
+      "paper_id": "P-c723f4e060c47d3f",
+      "page": 3,
+      "figure_ref": "Figure 2",
+      "curve_id": "C-e70a5859a24e",
+      "worksheet_png": "E:\\开发\\SEELS\\data\\work\\region_worksheet\\RG-014_P-c723f4e060c47d3f_p3.png",
+      "our_region": [
+        405.65,
+        57.52,
+        561.37,
+        701.81
+      ],
+      "our_region_source": "embedded_images",
+      "layout_blocks": [
+        [
+          79.7,
+          52.6,
+          535.1,
+          263.5
+        ]
+      ],
+      "gold_bbox": null,
+      "gold_note": ""
+    },
+    {
+      "id": "RG-015",
+      "paper_id": "P-cb4bf1add0ff7a6c",
+      "page": 3,
+      "figure_ref": "Figure 3",
+      "curve_id": "C-8c5eb1ec5fe8",
+      "worksheet_png": "E:\\开发\\SEELS\\data\\work\\region_worksheet\\RG-015_P-cb4bf1add0ff7a6c_p3.png",
+      "our_region": [
+        318.8,
+        52.9,
+        558.3,
+        226.7
+      ],
+      "our_region_source": "layout:docling",
+      "layout_blocks": [
+        [
+          52.4,
+          52.4,
+          291.1,
+          245.7
+        ],
+        [
+          318.8,
+          52.9,
+          558.3,
+          226.7
+        ]
+      ],
+      "gold_bbox": null,
+      "gold_note": ""
+    },
+    {
+      "id": "RG-016",
+      "paper_id": "P-437796ec2d1fa90c",
+      "page": 2,
+      "figure_ref": "Figure 2",
+      "curve_id": "C-7751dace8ed0",
+      "worksheet_png": "E:\\开发\\SEELS\\data\\work\\region_worksheet\\RG-016_P-437796ec2d1fa90c_p2.png",
+      "our_region": [
+        315.4,
+        52.4,
+        561.3,
+        300.7
+      ],
+      "our_region_source": "layout:docling",
+      "layout_blocks": [
+        [
+          315.4,
+          52.4,
+          561.3,
+          300.7
+        ]
+      ],
+      "gold_bbox": null,
+      "gold_note": ""
+    },
+    {
+      "id": "RG-017",
+      "paper_id": "P-0084ce71891e02bd",
+      "page": 3,
+      "figure_ref": "Figure 2",
+      "curve_id": "C-2529e2435d68",
+      "worksheet_png": "E:\\开发\\SEELS\\data\\work\\region_worksheet\\RG-017_P-0084ce71891e02bd_p3.png",
+      "our_region": [
+        54.8,
+        52.8,
+        563.2,
+        238.3
+      ],
+      "our_region_source": "layout:docling",
+      "layout_blocks": [
+        [
+          54.8,
+          52.8,
+          563.2,
+          238.3
+        ]
+      ],
+      "gold_bbox": null,
+      "gold_note": ""
+    },
+    {
+      "id": "RG-018",
+      "paper_id": "P-aa760664b1f01846",
+      "page": 3,
+      "figure_ref": "Figure 2",
+      "curve_id": "C-1339d01cedbd",
+      "worksheet_png": "E:\\开发\\SEELS\\data\\work\\region_worksheet\\RG-018_P-aa760664b1f01846_p3.png",
+      "our_region": [
+        53.8,
+        54.1,
+        297.5,
+        325.6
+      ],
+      "our_region_source": "layout:docling",
+      "layout_blocks": [
+        [
+          53.8,
+          54.1,
+          297.5,
+          325.6
+        ]
+      ],
+      "gold_bbox": null,
+      "gold_note": ""
+    },
+    {
+      "id": "RG-019",
+      "paper_id": "P-e053d93148e634e3",
+      "page": 4,
+      "figure_ref": "Figure 2",
+      "curve_id": "C-de19877a568a",
+      "worksheet_png": "E:\\开发\\SEELS\\data\\work\\region_worksheet\\RG-019_P-e053d93148e634e3_p4.png",
+      "our_region": [
+        109.1,
+        82.3,
+        498.7,
+        221.8
+      ],
+      "our_region_source": "layout:docling",
+      "layout_blocks": [
+        [
+          109.1,
+          82.3,
+          498.7,
+          221.8
+        ]
+      ],
+      "gold_bbox": null,
+      "gold_note": ""
+    },
+    {
+      "id": "RG-020",
+      "paper_id": "P-6de89c73133970da",
+      "page": 2,
+      "figure_ref": "Figure 1",
+      "curve_id": "C-32c5b43b4b18",
+      "worksheet_png": "E:\\开发\\SEELS\\data\\work\\region_worksheet\\RG-020_P-6de89c73133970da_p2.png",
+      "our_region": [
+        44.0,
+        239.46,
+        572.09,
+        533.79
+      ],
+      "our_region_source": "heuristic_fallback",
+      "layout_blocks": [],
+      "gold_bbox": null,
+      "gold_note": ""
+    },
+    {
+      "id": "RG-021",
+      "paper_id": "P-6a7c7dcf34a4b009",
+      "page": 4,
+      "figure_ref": "Figure 2",
+      "curve_id": "C-7b100c25e516",
+      "worksheet_png": "E:\\开发\\SEELS\\data\\work\\region_worksheet\\RG-021_P-6a7c7dcf34a4b009_p4.png",
+      "our_region": [
+        161.2,
+        266.5,
+        432.3,
+        524.5
+      ],
+      "our_region_source": "layout:docling",
+      "layout_blocks": [
+        [
+          161.2,
+          266.5,
+          432.3,
+          524.5
+        ]
+      ],
+      "gold_bbox": null,
+      "gold_note": ""
+    },
+    {
+      "id": "RG-022",
+      "paper_id": "P-455fe33f2b5fab9a",
+      "page": 7,
+      "figure_ref": "Figure 10",
+      "curve_id": "C-51706fad35fc",
+      "worksheet_png": "E:\\开发\\SEELS\\data\\work\\region_worksheet\\RG-022_P-455fe33f2b5fab9a_p7.png",
+      "our_region": [
+        62.0,
+        258.84,
+        550.06,
+        552.91
+      ],
+      "our_region_source": "heuristic_fallback",
+      "layout_blocks": [],
+      "gold_bbox": null,
+      "gold_note": ""
+    },
+    {
+      "id": "RG-023",
+      "paper_id": "P-9622b04f37cdc7ac",
+      "page": 6,
+      "figure_ref": "Figure 2",
+      "curve_id": "C-6eb16745b4ad",
+      "worksheet_png": "E:\\开发\\SEELS\\data\\work\\region_worksheet\\RG-023_P-9622b04f37cdc7ac_p6.png",
+      "our_region": [
+        322.1,
+        55.7,
+        554.7,
+        459.2
+      ],
+      "our_region_source": "layout:docling",
+      "layout_blocks": [
+        [
+          322.1,
+          55.7,
+          554.7,
+          459.2
+        ]
+      ],
+      "gold_bbox": null,
+      "gold_note": ""
+    },
+    {
+      "id": "RG-024",
+      "paper_id": "P-94caabbffbaa9bc7",
+      "page": 6,
+      "figure_ref": "Figure 2",
+      "curve_id": "C-7fe9be4cae28",
+      "worksheet_png": "E:\\开发\\SEELS\\data\\work\\region_worksheet\\RG-024_P-94caabbffbaa9bc7_p6.png",
+      "our_region": [
+        74.4,
+        76.2,
+        537.3,
+        324.6
+      ],
+      "our_region_source": "layout:docling",
+      "layout_blocks": [
+        [
+          74.4,
+          76.2,
+          537.3,
+          324.6
+        ]
+      ],
+      "gold_bbox": null,
+      "gold_note": ""
+    }
+  ]
+}
