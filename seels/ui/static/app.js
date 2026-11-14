@@ -244,7 +244,21 @@ function evHtml(ev) {
     '<button data-jump="' + esc(ev.evidence_id) + '" data-page="' + ev.page + '">定位到原文</button>' +
     '</div>';
 }
+function navMeasurement(delta) {
+  if (!state.measurements.length) return;
+  var idx = -1;
+  for (var i = 0; i < state.measurements.length; i++) {
+    if (state.selectedM && state.measurements[i].measurement_id === state.selectedM.measurement_id) { idx = i; break; }
+  }
+  var next = idx < 0 ? (delta > 0 ? 0 : state.measurements.length - 1)
+                     : (idx + delta + state.measurements.length) % state.measurements.length;
+  selectMeasurement(state.measurements[next].measurement_id, true);
+}
 function renderDetail(m) {
+  var pos = 0;
+  for (var i = 0; i < state.measurements.length; i++) {
+    if (state.measurements[i].measurement_id === m.measurement_id) { pos = i + 1; break; }
+  }
   var cond = Object.keys(m.conditions || {}).map(function (k) {
     var v = m.conditions[k];
     if (!v || typeof v !== 'object') return esc(k) + ': ' + esc(v);
@@ -253,6 +267,11 @@ function renderDetail(m) {
     return esc(k) + ': ' + esc(v.value) + ' ' + esc(v.unit || '') + (v.raw ? ' <span class="dim">(' + esc(v.raw) + ')</span>' : '');
   }).join('<br>') || '<span class="dim">（无条件记录）</span>';
   $('detailBox').innerHTML =
+    '<div class="actions" style="margin:0 0 6px">' +
+      '<button id="btnPrevM" title="上一条 (↑/k)">⟨ 上一条</button>' +
+      '<span class="dim">' + (pos ? pos + ' / ' + state.measurements.length : '') + '</span>' +
+      '<button id="btnNextM" title="下一条 (↓/j)">下一条 ⟩</button>' +
+    '</div>' +
     '<div class="detail-grid">' +
     '<span class="k">measurement_id</span><span>' + esc(m.measurement_id) + '</span>' +
     '<span class="k">quantity</span><span>' + esc(m.quantity || '(未定)') + '</span>' +
@@ -301,6 +320,9 @@ function renderDetail(m) {
   Array.prototype.forEach.call($('detailBox').querySelectorAll('[data-act]'), function (b) {
     b.addEventListener('click', function () { doReview(b.dataset.act); });
   });
+  var bp = $('btnPrevM'), bn = $('btnNextM');
+  if (bp) bp.addEventListener('click', function () { navMeasurement(-1); });
+  if (bn) bn.addEventListener('click', function () { navMeasurement(+1); });
   var mf = $('modifyForm');
   if (mf) mf.classList.remove('open');
 }
@@ -503,6 +525,12 @@ function initEvents() {
   $('showEv').addEventListener('change', function () { state.showEv = this.checked; renderOverlay(); });
   $('btnMSearch').addEventListener('click', loadMeasurements);
   $('mSearch').addEventListener('keydown', function (e) { if (e.key === 'Enter') loadMeasurements(); });
+  document.addEventListener('keydown', function (e) {
+    var tag = (e.target && e.target.tagName) || '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    if (e.key === 'ArrowDown' || e.key === 'j') { e.preventDefault(); navMeasurement(+1); }
+    else if (e.key === 'ArrowUp' || e.key === 'k') { e.preventDefault(); navMeasurement(-1); }
+  });
   Array.prototype.forEach.call(document.querySelectorAll('.tabs button'), function (b) {
     b.addEventListener('click', function () { switchTab(b.dataset.tab); });
   });

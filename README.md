@@ -3,6 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](#快速开始)
 [![Tests](https://img.shields.io/badge/pytest-41_passed-brightgreen.svg)](#测试与评估)
+[![CI](https://github.com/YueQiandesedianzi/Scientific-Evidence-Extraction-Learning-System-SEELS-/actions/workflows/ci.yml/badge.svg)](https://github.com/YueQiandesedianzi/Scientific-Evidence-Extraction-Learning-System-SEELS-/actions/workflows/ci.yml)
 [![Version](https://img.shields.io/badge/version-0.1.0_MVP-orange.svg)](#已知限制与路线图)
 
 > 从学术论文 PDF 中抽取**可追溯、可验证、可复现**的「样品 – 条件 – 性能」数据：
@@ -74,6 +75,8 @@ python -m venv --system-site-packages .venv
 .venv\Scripts\python -m seels cards all               # 六维学习卡
 .venv\Scripts\python -m seels serve                   # 打开 http://127.0.0.1:8765 复核
 ```
+
+> 也可作为 Python 包安装：`pip install -e .`（提供全局 `seels` 命令）；CI 见 .github/workflows/ci.yml，每次 push 自动跑 41 项测试。
 
 </details>
 
@@ -165,12 +168,12 @@ erDiagram
 python -m pytest tests -q     # 41 passed（单元+集成：解析/抽取/曲线/QC/导出/API 全链路）
 ```
 
-| 评估层 | 结果（2026-11-14 提交时点） |
+| 评估层 | 结果（2026-11-14，rules-v1 0.2.0 时点） |
 |---|---|
 | 合成论文 · 精确金标准（构造即真值，pytest 守护） | **8/8 匹配，相对误差 0.000**；篡改值→MISMATCH、虚构条目→MISSING 均正确报出 |
-| 真实论文 · 部分金标准（arXiv 2611.17283，76 页，8 项人工核读标注） | **4/8 匹配（误差全 0.000）**，4 项如实报缺失/近失，召回 50%；**0 编造数值** |
-| 12 篇 arXiv 语料（4 个子领域，280 页）端到端 | 解析 0 失败页；187 测量 / 415 证据 / 72 图区 / 187 学习卡；QC 未决标记 238 条全部可见；ML 数据集 163 行、100% 带证据 |
-| 冷启动全流水线 | 243.7 s（含全部解析与图区渲染；重跑走缓存 25.8 s） |
+| 真实论文 · 部分金标准（arXiv 2611.17283，76 页，8 项核读标注） | **8/8 匹配，相对误差全部 0.000**，召回 100%；**0 编造数值**（0.1.0 时为 4/8，升级记录与金标准修订说明见评估报告 §3） |
+| 12 篇 arXiv 语料（4 个子领域，280 页）端到端 | 解析 0 失败页；220 测量 / 447 证据 / 72 图区 / 220 学习卡；QC 未决标记 420 条全部可见；ML 数据集 196 行、100% 带证据 |
+| 全流水线耗时 | 首次冷启动 243.7 s；缓存热重跑 6.8 s |
 
 细节、逐条对照与复现命令：[docs/04-evaluation.md](docs/04-evaluation.md)。表中数字随语料与规则版本变化，以重新运行的报告为准。
 
@@ -193,6 +196,7 @@ python -m pytest tests -q     # 41 passed（单元+集成：解析/抽取/曲线
 | [03 数据 Schema](docs/03-schema.md) | 全部表结构、FieldVal 契约、状态机、导出契约 |
 | [04 评估报告](docs/04-evaluation.md) | 金标准误差对照、12 篇语料端到端结果、复现命令 |
 | [05 已知限制与路线图](docs/05-limitations-roadmap.md) | 18 项如实限制 + P1/P2/P3 计划 + 系统边界（明确不做什么） |
+| [06 图区识别升级方案](docs/06-figure-recognition-upgrade-plan.md) | 图区检测问题审计 + 版面引擎（docling/MinerU）接入完整方案（待决策） |
 
 <details>
 <summary><b>验收标准对照（点击展开）</b></summary>

@@ -47,12 +47,23 @@ _NAME = (r"(?:critical\s+temperature|superconducting\s+transition\s+temperature|
          r"critical\s+current\s+density|upper\s+critical\s+field|transition\s+temperature|"
          r"insertion\s+loss(?:es)?|extinction\s+ratio|quality\s+factor|responsivity|"
          r"threshold\s+voltage|turn-on\s+voltage|sheet\s+resistance|carrier\s+concentration|"
-         r"on/off\s+ratio|efficiency)")
+         r"specific\s+heat|heat\s+capacity|(?:gaussian\s+)?flux|emissivity|energy\s+density|"
+         r"power\s+density|adhesion\s+energy|interface\s+energy|melting\s+point|"
+         r"decomposition\s+temperature|on/off\s+ratio|efficiency)")
 
+# (regex, kind): kind drives post-processing policy.
+#   sym         curated symbol list, unit optional
+#   name        quantity name + connector (+ up to 6 bridging words), unit optional
+#   pce         percent-efficiency shorthand
+#   name_eq     quantity name ... = value   (e.g. "thermal conductivity kSiC-BN =11.65 W/mK")
+#   sym_generic any short symbol = value unit  (unit REQUIRED and must be known,
+#               otherwise the hit becomes an uncertain record, not a measurement)
 TEXT_PATTERNS = [
-    re.compile(r"(?P<q>" + _SYM + r")\s*(?:=|\u2248|~)\s*(?P<val>" + _VALUE + r")\s*(?P<unit>" + _UNIT + r")?"),
-    re.compile(r"(?P<q>" + _NAME + r")\s+(?:of|is|was|were|=|:|\u2248|~|around|approximately|near|up\s+to|exceeding|reaching|about|below|above|as\s+high\s+as|as\s+low\s+as)\s+(?:[A-Za-z][A-Za-z0-9\-\.,()]*\s+){0,6}(?P<val>" + _VALUE + r")\s*(?P<unit>" + _UNIT + r")?", re.IGNORECASE),
-    re.compile(r"(?P<q>PCE|pce|efficiency)\s+(?:of|is|was|=|around)?\s*(?P<val>" + _VALUE + r")\s*(?P<unit>%)"),
+    (re.compile(r"(?P<q>" + _SYM + r")\s*(?:=|\u2248|~)\s*(?P<val>" + _VALUE + r")\s*(?P<unit>" + _UNIT + r")?"), "sym"),
+    (re.compile(r"(?P<q>" + _NAME + r")\s+(?:of|is|was|were|=|:|\u2248|~|around|approximately|near|up\s+to|exceeding|reaching|about|below|above|as\s+high\s+as|as\s+low\s+as)\s+(?:[A-Za-z][A-Za-z0-9\-\.,()]*\s+){0,6}(?P<val>" + _VALUE + r")\s*(?P<unit>" + _UNIT + r")?", re.IGNORECASE), "name"),
+    (re.compile(r"(?P<q>PCE|pce|efficiency)\s+(?:of|is|was|=|around)?\s*(?P<val>" + _VALUE + r")\s*(?P<unit>%)"), "pce"),
+    (re.compile(r"(?P<q>" + _NAME + r")(?:\s+[A-Za-z\u0394\u03b1-\u03c9][A-Za-z0-9\u2032\u0394\u03b1-\u03c9\-\.,()']*){0,4}\s*(?:=|\u2248)\s*(?P<val>" + _VALUE + r")\s*(?P<unit>" + _UNIT + r")?", re.IGNORECASE), "name_eq"),
+    (re.compile(r"(?<![A-Za-z0-9])(?P<q>[A-Za-z\u0394\u03b1-\u03c9]{1,3}[0-9]?)\s*(?:=|\u2248)\s*(?P<val>" + _VALUE + r")\s+(?P<unit>" + _UNIT + r")"), "sym_generic"),
 ]
 
 SAMPLE_HEADER_HINTS = ("sample", "composition", "compound", "material", "specimen",
@@ -79,7 +90,7 @@ def _split_header_unit(text: str):
     return text.strip(), None
 
 
-def _canon_quantity(text: str) -> str:
+def _canon_quantity(text: str, ambiguous_symbol: bool = False) -> str:
     t = normalize_text(text or "").lower()
     t = t.replace("_", " ")
     for alias, canon in sorted(QUANTITY_ALIASES.items(), key=lambda kv: -len(kv[0])):
@@ -87,6 +98,8 @@ def _canon_quantity(text: str) -> str:
             continue
         if re.search(r"(?<![a-z])" + re.escape(alias) + r"(?![a-z])", t):
             return canon
+    if ambiguous_symbol and t:
+        return "symbol_%s_ambiguous" % t.replace(" ", "")
     return normalize_text(text or "") or None
 
 
@@ -131,7 +144,7 @@ def _split_sentences(text: str) -> list:
 
 class RuleExtractor:
     name = "rules-v1"
-    version = "0.1.0"
+    version = "0.2.0"   # 0.2.0: +name_eq/sym_generic patterns, NFKC-normalized matching
     kind = "rules"
 
     def __init__(self, cfg: dict = None):
@@ -369,13 +382,15 @@ class RuleExtractor:
     # ------------------------------------------------------------------
     def _extract_text(self, page: dict, ctx) -> None:
         page_no = page["page_no"]
-        text = page.get("text") or ""
+        # match on NFKC-normalized text so subscript/superscript glyph variants
+        # (T\u2081 -> T1, \u209a -> p) unify with the word list used for grounding
+        text = normalize_text(page.get("text") or "")
         if len(text.strip()) < 20:
             return
         sentences = _split_sentences(text)
         known_samples = {normalize_text(s["name"]).lower(): sid
                          for sid, s in ((v["sample_id"], v) for v in ctx["samples"].values())}
-        for pat in TEXT_PATTERNS:
+        for pat, kind in TEXT_PATTERNS:
             for m in pat.finditer(text):
                 if ctx["n_text_items"] >= self.max_text_items:
                     ctx["uncertain"].append({"field": "text", "reason": "text_item_cap_reached",
@@ -400,6 +415,14 @@ class RuleExtractor:
                                              "page": page_no, "quote": quote})
                     continue
                 parsed = parse_value_unit((val_s or "") + (" " + unit_s if unit_s else ""))
+                if kind == "sym_generic":
+                    # policy: a bare symbol only becomes data when its unit is known;
+                    # otherwise it is an equation fragment we refuse to interpret
+                    if not (parsed["unit"] and unit_key(parsed["unit"]) in UNITS):
+                        ctx["uncertain"].append({
+                            "field": m.group("q"), "reason": "generic_symbol_unknown_unit",
+                            "page": page_no, "quote": quote})
+                        continue
                 ev = ctx["add_ev"](page=page_no, bbox=bbox, quote_text=matched or quote,
                                    element_kind="text",
                                    element_ref="Text p%d [%g,%g]" % (page_no, bbox[0], bbox[1]),
@@ -418,7 +441,7 @@ class RuleExtractor:
                                              "page": page_no, "quote": quote})
                     continue
                 std = standardize(parsed["value"], parsed["unit"])
-                qty = _canon_quantity(m.group("q"))
+                qty = _canon_quantity(m.group("q"), ambiguous_symbol=(kind == "sym_generic"))
                 tkey = (page_no, qty, parsed["value"], parsed["unit"])
                 prev = ctx.get("text_index", {}).get(tkey)
                 if prev is not None:

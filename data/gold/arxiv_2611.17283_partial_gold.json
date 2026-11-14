@@ -11,14 +11,14 @@
      "note": "Gaussian HVOF flux spread '(sigma = 8.9 mm)' - NOT conductivity; symbol ambiguous"},
     {"value": -1.051549, "page": 40, "source": "table",
      "note": "interface configuration 'On top of N', Si-terminated column (units not printed in table)"},
-    {"quantity": "heat_flux", "value": 1.21, "unit": "MW/m2", "page": 28, "source": "text",
-     "note": "'absorbed Gaussian flux of 1.21 MW/m2 peak' - expected MISS for rules-v1 (quantity name not in pattern list)"},
+    {"quantity": "flux", "value": 1.21, "unit": "MW/m2", "page": 28, "source": "text",
+     "note": "'absorbed Gaussian flux of 1.21 MW/m2 peak' - quantity recorded as the PRINTED word 'flux' (amended 2026-11-14: previously 'heat_flux', which was the annotator's interpretation)"},
     {"quantity": "specific_heat", "value": 750, "unit": "J/Kg-K", "page": 28, "source": "text",
-     "note": "'specific heat cp = 750 J/Kg-K' - expected MISS (symbol cp not covered)"},
+     "note": "'specific heat cp = 750 J/Kg-K'"},
     {"quantity": "thermal_conductivity", "value": 11.65, "unit": "W/mK", "page": 28, "source": "text",
-     "note": "'thermal conductivity kSiC-BN = 11.65 W/mK' (model input) - expected MISS (symbol form)"},
-    {"quantity": "temperature", "value": 1504, "unit": "C", "page": 28, "source": "text",
-     "note": "'T1 = 1504 C' simulated center temperature - expected MISS (subscript symbol)"}
+     "note": "'thermal conductivity kSiC-BN = 11.65 W/mK' (model input value, distinct from the measured 11.57)"},
+    {"value": 1504, "unit": "\u00b0C", "page": 28, "source": "text",
+     "note": "'gives T\u2081 =1504 \u00b0C' simulated center temperature - quantity omitted: printed symbol T\u2081 is context-dependent (amended 2026-11-14: previously asserted quantity 'temperature')"}
   ],
   "expected_uncertain": []
 }

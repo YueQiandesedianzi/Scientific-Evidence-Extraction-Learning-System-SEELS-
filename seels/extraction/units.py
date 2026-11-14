@@ -144,6 +144,21 @@ UNITS.update({
     "mW/mK": ("thermal_conductivity", "W/(m*K)", 1e-3),
     "W m^-1 K^-1": ("thermal_conductivity", "W/(m*K)", 1.0),
     "mW m^-1 K^-1": ("thermal_conductivity", "W/(m*K)", 1e-3),
+    "W/m^2": ("power_density", "W/m^2", 1.0),
+    "W/m2": ("power_density", "W/m^2", 1.0),
+    "kW/m2": ("power_density", "W/m^2", 1e3),
+    "MW/m2": ("power_density", "W/m^2", 1e6),
+    "GW/m2": ("power_density", "W/m^2", 1e9),
+    "W/cm^2": ("power_density", "W/m^2", 1e4),
+    "W/cm2": ("power_density", "W/m^2", 1e4),
+    "mW/cm2": ("power_density", "W/m^2", 10.0),
+    "uW/cm2": ("power_density", "W/m^2", 0.01),
+    "J/(kg*K)": ("specific_heat", "J/(kg*K)", 1.0),
+    "J/kg-K": ("specific_heat", "J/(kg*K)", 1.0),
+    "J/kgK": ("specific_heat", "J/(kg*K)", 1.0),
+    "kJ/(kg*K)": ("specific_heat", "J/(kg*K)", 1e3),
+    "J/(g*K)": ("specific_heat", "J/(kg*K)", 1e3),
+    "J/g-K": ("specific_heat", "J/(kg*K)", 1e3),
 })
 
 _NUM_RE = re.compile(r"^[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?$")
