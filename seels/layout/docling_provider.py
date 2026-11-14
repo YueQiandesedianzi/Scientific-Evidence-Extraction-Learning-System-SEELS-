@@ -27,18 +27,19 @@ class DoclingLayoutProvider:
     name = "docling"
 
     def __init__(self, python_exe: str = None, worker: str = None, ocr: bool = False,
-                 timeout: int = 3600):
+                 tables: bool = False, timeout: int = 3600):
         self.python_exe = python_exe or os.environ.get("SEELS_LAYOUT_PYTHON",
                                                        DEFAULT_LAYOUT_PY)
         self.worker = worker or str(Path(config.BASE_DIR) / "scripts" / "layout_worker.py")
         self.ocr = ocr
+        self.tables = tables      # TableFormer is slow on CPU; figure regions don't need it
         self.timeout = timeout
 
     def available(self) -> bool:
         return Path(self.python_exe).exists() and Path(self.worker).exists()
 
     def analyze(self, paper: dict, force: bool = False) -> dict:
-        engine = self.name + ("-ocr" if self.ocr else "")
+        engine = self.name + ("-ocr" if self.ocr else "") + ("-tab" if self.tables else "")
         out = sidecar_path(paper["sha256"], engine)
         if out.exists() and not force:
             try:
@@ -57,8 +58,11 @@ class DoclingLayoutProvider:
                "--pdf", paper["source_path"], "--out", str(out)]
         if self.ocr:
             cmd.append("--ocr")
+        if not self.tables:
+            cmd.append("--no-tables")
         p = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
-                           errors="replace", env=env, timeout=self.timeout)
+                           errors="replace", env=env, timeout=self.timeout,
+                           stdin=subprocess.DEVNULL)
         if p.returncode != 0 or not out.exists():
             raise LayoutError("layout worker failed (rc=%s): %s" % (
                 p.returncode, ((p.stdout or "") + "\n" + (p.stderr or ""))[-800:]))

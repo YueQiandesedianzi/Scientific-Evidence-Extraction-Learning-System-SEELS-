@@ -50,7 +50,7 @@
 
 - **高保真解析** — pdfplumber（主）+ pypdfium2（备/渲染）双引擎；原生/扫描自动判别；异常页自动回退并记录差异日志；词/表格单元格/图注/图片全部带 bbox；断点恢复
 - **结构化抽取** — 确定性 rules-v1（表格结构 + 保守文本模式）；llm:openai-compat 与 llm:langextract 适配器（引文强制回原文定位，失败即拒绝）；单位标准化与原始值分离；歧义符号（σ/ρ/κ…）标记待人工消歧而非猜测
-- **曲线抽取** — 图区自动检测；轴校准（线性/log10）；图上点取；WebPlotDigitizer CSV 导入；重绘 + 原图叠加验证（重投影残差 ≤3px）；auto/LLM 来源永不自动通过
+- **曲线抽取** — 图区自动检测（docling 深度版面引擎，91% 区域来自版面模型，几何启发式仅作显式标记的回退）；UI 可拖拽手工修正区域；轴校准（线性/log10）；图上点取；WebPlotDigitizer CSV 导入；重绘 + 原图叠加验证（重投影残差 ≤3px）；auto/LLM 来源永不自动通过
 - **质量控制** — 证据完整性 / 数值单位重算 / 重复检测 / 条件关联 / 跨源一致性 / 曲线回绘 / 高风险转人工，共 7 项确定性检查
 - **复核与学习** — 本地 Web UI（无外网/CDN 依赖），六维学习卡，append-only 审核审计
 - **导出** — 9 张审计表 CSV、Excel 工作簿、ML 就绪数据集（入库策略写入 manifest）、金标准误差对照报告
@@ -174,6 +174,7 @@ python -m pytest tests -q     # 41 passed（单元+集成：解析/抽取/曲线
 | 真实论文 · 部分金标准（arXiv 2611.17283，76 页，8 项核读标注） | **8/8 匹配，相对误差全部 0.000**，召回 100%；**0 编造数值**（0.1.0 时为 4/8，升级记录与金标准修订说明见评估报告 §3） |
 | 12 篇 arXiv 语料（4 个子领域，280 页）端到端 | 解析 0 失败页；220 测量 / 447 证据 / 72 图区 / 220 学习卡；QC 未决标记 420 条全部可见；ML 数据集 196 行、100% 带证据 |
 | 全流水线耗时 | 首次冷启动 243.7 s；缓存热重跑 6.8 s |
+| 图区识别（docling 版面融合后） | 164 区域：91% layout:docling / 7% 显式启发式回退；矢量图论文 3/3 全对；CPU 1.4–3.3 s/页（详见 docs/06 §6） |
 
 细节、逐条对照与复现命令：[docs/04-evaluation.md](docs/04-evaluation.md)。表中数字随语料与规则版本变化，以重新运行的报告为准。
 
@@ -222,6 +223,7 @@ python -m pytest tests -q     # 41 passed（单元+集成：解析/抽取/曲线
 | SEELS_DB | data/work/seels.sqlite3 | 数据库文件路径 |
 | SEELS_UI_HOST | 127.0.0.1 | UI 绑定地址（默认仅本机） |
 | SEELS_UI_PORT | 8765 | UI 端口（亦可用 serve --port 覆盖） |
+| SEELS_LAYOUT_PYTHON | C:\Users\<user>\.seels\layout-venv\Scripts\python.exe | 版面引擎 venv（docling，ASCII 路径；见 requirements-layout.txt 与 docs/06 §6） |
 
 ## 许可
 

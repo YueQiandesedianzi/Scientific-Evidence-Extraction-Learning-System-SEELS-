@@ -1,47 +1,44 @@
+"""Audit figure-region quality: source distribution + fallback ratios.
 
-import sys, json, statistics
-sys.path.insert(0, ".")
+Re-runnable anytime:  python scripts/audit_figures.py
+Reports per region_source (layout:docling / embedded_images /
+heuristic_fallback / manual) so the docs/06 acceptance metric
+"heuristic fallback < 10%" can be verified objectively.
+"""
+from __future__ import annotations
+
+import sys
+from collections import Counter
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.stdout.reconfigure(encoding="utf-8")
+
 from seels.db import open_db
 from seels.parsing.pipeline import load_parse
 
-db = open_db()
-curves = db.list_curves()
-n = len(curves)
-heur = [c for c in curves if "region_heuristic" in (c.get("notes") or "")]
-print("TOTAL_CURVES:", n)
-print("HEURISTIC_FALLBACK:", len(heur), "(%.0f%%)" % (100 * len(heur) / max(1, n)))
-areas = []
-for c in curves:
-    bb = c.get("region_bbox")
-    if bb:
-        areas.append(round((bb[2] - bb[0]) * (bb[3] - bb[1])))
-if areas:
-    print("REGION_AREA pts2: median", statistics.median(areas), "min", min(areas), "max", max(areas))
-fixed_box = sum(1 for c in curves if "region_heuristic" in (c.get("notes") or "")
-                and c.get("region_bbox") and abs((c["region_bbox"][3] - c["region_bbox"][1]) - 280) < 30)
-print("BLIND_280PT_BOXES:", fixed_box)
-print()
-print("%-20s %5s %6s %8s %8s" % ("paper", "pages", "figcap", "img_pages", "emb_imgs"))
-tot_caps = tot_imgs = tot_imgpages = 0
-for p in db.list_papers():
-    doc = load_parse(p["paper_id"])
-    if not doc:
-        continue
-    figcaps = sum(1 for pg in doc["pages"] for c in (pg.get("captions") or []) if c["kind"] == "figure")
-    imgpages = sum(1 for pg in doc["pages"] if pg.get("images"))
-    imgs = sum(len(pg.get("images") or []) for pg in doc["pages"])
-    tot_caps += figcaps; tot_imgs += imgs; tot_imgpages += imgpages
-    print("%-20s %5d %6d %8d %8d" % (p["paper_id"], doc["n_pages"], figcaps, imgpages, imgs))
-print("TOTALS figcaps=%d embedded_imgs=%d pages_with_imgs=%d" % (tot_caps, tot_imgs, tot_imgpages))
-# subfigure caption check (Figure 3a/3b style refs)
-import re
-sub = 0
-for p in db.list_papers():
-    doc = load_parse(p["paper_id"])
-    if not doc: continue
-    for pg in doc["pages"]:
-        for c in pg.get("captions") or []:
-            if c["kind"] == "figure" and re.search(r"\d+[a-z]\b", c["ref"] or ""):
-                sub += 1
-print("SUBFIGURE_LETTER_REFS:", sub)
+
+def main():
+    db = open_db()
+    curves = db.list_curves()
+    src = Counter((c.get("region_source") or "legacy_null") for c in curves)
+    print("TOTAL_CURVES:", len(curves))
+    for k, v in src.most_common():
+        print("  %-22s %3d  (%.0f%%)" % (k, v, 100 * v / max(1, len(curves))))
+    heur = src.get("heuristic_fallback", 0) + src.get("legacy_null", 0)
+    print("HEURISTIC_OR_LEGACY: %d (%.0f%%)" % (heur, 100 * heur / max(1, len(curves))))
+    named = sum(1 for c in curves if not (c.get("figure_ref") or "").startswith("Unnamed"))
+    print("CAPTION_NAMED:", named, "| UNNAMED_BLOCKS:", len(curves) - named)
+    # layout coverage per paper
+    print()
+    print("%-20s %6s %8s %8s" % ("paper", "curves", "layout", "heur/null"))
+    for p in db.list_papers():
+        cs = db.list_curves(p["paper_id"])
+        lay = sum(1 for c in cs if (c.get("region_source") or "").startswith("layout"))
+        heu = sum(1 for c in cs if (c.get("region_source") or "") in
+                  ("heuristic_fallback", "embedded_images", ""))
+        print("%-20s %6d %8d %8d" % (p["paper_id"], len(cs), lay, heu))
+
+
+if __name__ == "__main__":
+    main()

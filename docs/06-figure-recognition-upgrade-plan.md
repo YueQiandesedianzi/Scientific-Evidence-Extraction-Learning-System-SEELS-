@@ -112,7 +112,34 @@
 5. torch CPU 安装体积/网络 → 国内 pip 镜像 + 一次性安装进独立 venv extra（requirements-layout.txt，不进核心依赖；核心 MVP 保持零重型依赖）。
 6. 版面引擎自身错误 → region_source+score 入库、UI 徽标可视化、P2a 手工修正兜底、QC 对 fallback 区域出 info 标记——**引擎结果同样不享受"自动可信"待遇**。
 
-## 6. 决策点（需确认后启动）
+## 6. 实施记录（2026-11-14 决策后当日完成 P1+P2a+P2b）
+
+**用户决策**：A) docling 主版面 + MinerU 扫描 OCR；授权下载；chart2csv（P5）纳入本期；P2a 立即实施。
+
+**关键工程发现（Windows 特有）**：docling-parse 7.26.0 的原生层无法从**非 ASCII 安装路径**加载自带资源（glyphs/*.dat 打开失败，报 "filename does not exists"），且 PDF 路径含中文同样有风险；另有子进程 stdin 继承导致的启动挂起。解决方案（已实现并验证）：
+1. 版面引擎装入**纯 ASCII 路径独立 venv**（C:\Users\<user>\.seels\layout-venv，SEELS_LAYOUT_PYTHON 可覆写），核心 venv 保持零 torch——比原计划更干净的隔离；
+2. scripts/layout_worker.py 子进程契约：PDF 复制到 ASCII 临时文件解析（原件只读不动）、JSON sidecar（schema seels.layout/1.0，sha256 键控缓存、含 diag 计数）、stdin=DEVNULL；
+3. --no-tables 跳过 TableFormer（图区用途不需要，速度 ~2×）。
+
+**P1 POC 实测（CPU，docling 2.150.0，HerON 版面）**：
+
+| 论文 | 页 | docling 图区块 | 图注数 | 引擎秒 | 秒/页 | 旧启发式区域 IoU≥0.5 | 旧区域 IoU 中位 |
+|---|---|---|---|---|---|---|---|
+| P-aa760664（矢量图重灾） | 7 | **3** | 3 | 22.9 | 3.3 | 1/3 | 0.414 |
+| P-a160c171 | 11 | **6** | 6 | 29.0 | 2.6 | 3/6 | 0.531 |
+| P-455fe33f | 76 | **35**（另 8 表格块） | 8 | 108.7 | 1.4 | 3/9 | 0.000 |
+
+结论：docling 图区召回与图注数精确一致（3/3、6/6），76 页大文档无内存问题；旧启发式区域与版面真值 IoU 中位数 0~0.53，证实 §1 诊断。验收线"figure block 召回 ≥90%、CPU ≤5s/页"达标。
+
+**P2a（已交付）**：UI「调整区域」拖拽框选 + region_source 徽标 + 校准/点位自动重置 + modify 审计留痕 + manual 区域防覆盖（tests 46 项全绿，含 4 项 hermetic 布局融合测试）。
+
+**P2b（已交付）**：seels/layout（base+docling_provider）、figures.py 版面融合（caption↔block 匹配、未匹配大块→Unnamed 区域、稳定曲线 ID、陈旧区域安全清理）、CLI --no-layout、/api/figures 透传。sidecar 缓存跨 POC/生产共享。
+
+**全语料融合结果（scripts/audit_figures.py，2026-11-15）**：164 个区域中 **149 个（91%）来自 layout:docling**，启发式回退 12 个（7%，全部显式标记）+ legacy 1 个（带人工数据的演示曲线，受保护保留）；带图注名区域 71 个，另新增 93 个 Unnamed 版面块候选（供人工筛选）。矢量图重灾论文 P-aa760664 从"3 个全盲盒"变为 3/3 版面区域。**验收线"回退占比 <10% 且全部显式标记"达成**（38% → 7%）。
+
+**待办**：P3 图区金标准 20 图 IoU 评估；P4 MinerU 扫描 OCR；P5 chart2csv（已纳入本期，待 P3 后启动）。
+
+## 7. 决策点（原文存档；四项决策已全部确认，见 §6 首行）
 
 1. **引擎组合**：A) docling 主版面 + MinerU 扫描 OCR（推荐）；B) 仅 MinerU（版面+OCR 一体，接受表格结构与许可条款差异）；C) P1 双 POC 后凭数据定。
 2. **磁盘/下载授权**：允许安装 torch CPU + 模型权重（P1 约 3GB；选 A 全量约 4–5GB）？

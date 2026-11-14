@@ -33,6 +33,9 @@ def main() -> int:
     ap.add_argument("--out", required=True)
     ap.add_argument("--page-range", default=None, help="inclusive 1-based, e.g. 3-12")
     ap.add_argument("--ocr", action="store_true", help="enable OCR pipeline (scanned pages)")
+    ap.add_argument("--no-tables", action="store_true",
+                    help="skip TableFormer table-structure analysis (much faster; "
+                         "figure regions do not need it)")
     a = ap.parse_args()
     sys.stdout.reconfigure(encoding="utf-8")
 
@@ -47,13 +50,23 @@ def main() -> int:
         return 2
     digest = hashlib.sha256(open(src, "rb").read()).hexdigest()
 
+    # cache: reuse a sidecar that already matches this exact PDF
+    if os.path.exists(a.out) and not a.page_range:
+        try:
+            prev = json.load(open(a.out, encoding="utf-8"))
+            if prev.get("pdf_sha256") == digest and prev.get("ocr") == bool(a.ocr):
+                print("LAYOUT_CACHED pages=%d out=%s" % (len(prev.get("pages") or []), a.out))
+                return 0
+        except Exception:
+            pass  # corrupt cache -> regenerate
+
     tmpdir = tempfile.mkdtemp(prefix="seels_layout_")
     tmp_pdf = os.path.join(tmpdir, digest[:16] + ".pdf")
     shutil.copy2(src, tmp_pdf)   # ASCII-safe working copy; original untouched
 
     opts = PdfPipelineOptions()
     opts.do_ocr = bool(a.ocr)
-    opts.do_table_structure = True
+    opts.do_table_structure = not a.no_tables
     conv = DocumentConverter(
         format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=opts)})
 
@@ -129,6 +142,14 @@ def main() -> int:
         add("table", getattr(tb, "prov", None), extra)
         n_tab += 1
 
+    diag = {
+        "n_pages_doc": len(getattr(doc, "pages", {}) or {}),
+        "n_texts": len(getattr(doc, "texts", None) or []),
+        "n_pictures": len(getattr(doc, "pictures", None) or []),
+        "n_tables": len(getattr(doc, "tables", None) or []),
+    }
+    print("WORKER_DIAG " + json.dumps(diag))
+
     out = {
         "schema": "seels.layout/1.0",
         "engine": "docling",
@@ -138,6 +159,7 @@ def main() -> int:
         "ocr": bool(a.ocr),
         "page_range": a.page_range,
         "seconds": seconds,
+        "diag": diag,
         "pages": [{"page_no": pno, **pages_meta.get(pno, {}),
                    "blocks": blocks_by_page.get(pno, [])}
                   for pno in sorted(set(list(pages_meta) + list(blocks_by_page)))],

@@ -44,9 +44,10 @@ def run_worker(pdf: str, out_json: Path) -> dict:
     env.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
     env["PYTHONIOENCODING"] = "utf-8"
     t0 = time.time()
-    p = subprocess.run([LAYOUT_PY, str(WORKER), "--pdf", pdf, "--out", str(out_json)],
+    p = subprocess.run([LAYOUT_PY, str(WORKER), "--pdf", pdf, "--out", str(out_json),
+                        "--no-tables"],
                        capture_output=True, text=True, encoding="utf-8", env=env,
-                       timeout=3600)
+                       timeout=3600, stdin=subprocess.DEVNULL)
     dt = time.time() - t0
     if p.returncode != 0:
         return {"error": (p.stdout or "")[-400:] + (p.stderr or "")[-1200:], "seconds": dt}
