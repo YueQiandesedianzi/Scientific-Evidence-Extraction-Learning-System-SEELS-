@@ -1,0 +1,8 @@
+# SEELS MVP runtime dependencies (Python >=3.10, developed on 3.12)
+pdfplumber>=0.11,<0.12
+pypdfium2>=5,<6
+matplotlib>=3.9
+numpy>=1.26
+pandas>=2.0
+Pillow>=10
+openpyxl>=3.1

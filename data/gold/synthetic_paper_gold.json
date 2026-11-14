@@ -1,0 +1,26 @@
+{
+  "annotator": "by-construction (synthetic fixture; values are the ground truth of tests/conftest.py)",
+  "paper_file": "synth_paper.pdf (generated deterministically by the test suite)",
+  "notes": "Exact gold standard for the synthetic test paper. Used by tests/test_extraction.py and the demo evaluation.",
+  "items": [
+    {"quantity": "critical_temperature", "value": 93, "unit": "K", "page": 1, "source": "text",
+     "note": "sentence: Sample A (La0.7Sr0.3MnO3) shows Tc = 93 K."},
+    {"quantity": "critical_temperature", "value": 85, "unit": "K", "sample": "Sample B", "page": 1,
+     "source": "text", "note": "sentence: The critical temperature of Sample B is 85 K."},
+    {"quantity": "critical_temperature", "value": 93, "unit": "K", "sample": "Sample A", "page": 2,
+     "source": "table"},
+    {"quantity": "critical_temperature", "value": 85, "unit": "K", "sample": "Sample B", "page": 2,
+     "source": "table"},
+    {"quantity": "electrical_conductivity", "value": 120, "unit": "S/cm", "sample": "Sample A",
+     "page": 2, "source": "table"},
+    {"quantity": "electrical_conductivity", "value": 95, "unit": "S/cm", "sample": "Sample B",
+     "page": 2, "source": "table"},
+    {"quantity": "resistivity", "value": 0.0083, "unit": "Ohm*cm", "sample": "Sample A",
+     "page": 2, "source": "table"},
+    {"quantity": "resistivity", "value": 0.0105, "unit": "Ohm*cm", "sample": "Sample B",
+     "page": 2, "source": "table"}
+  ],
+  "expected_uncertain": [
+    {"reason": "range_not_single_value", "quote_contains": "12-15"}
+  ]
+}

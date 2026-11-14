@@ -1,0 +1,6 @@
+# development / test dependencies
+-r requirements.txt
+pytest>=8
+fpdf2>=2.7        # synthetic test-fixture paper generation only
+# optional LLM extraction adapter (uncomment to enable llm:langextract):
+# langextract>=1.7

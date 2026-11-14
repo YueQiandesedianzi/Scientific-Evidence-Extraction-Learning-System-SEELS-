@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SEELS · 证据复核与学习台</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <div class="brand">SEELS<span>科学证据抽取与学习系统 · 人工复核台</span></div>
+  <div class="controls">
+    <label>论文 <select id="paperSel"></select></label>
+    <label>复核人 <input id="reviewer" size="9" value="reviewer1"></label>
+    <button id="btnExtract" title="运行 rules-v1 结构化抽取">结构化抽取</button>
+    <button id="btnFigures" title="检测图区并生成曲线记录">提取图表区域</button>
+    <button id="btnQC" title="运行七项质量检查">运行QC</button>
+    <button id="btnCards" title="为测量生成六维学习卡">生成学习卡</button>
+    <button id="btnCsv">导出CSV</button>
+    <button id="btnXlsx">导出Excel</button>
+  </div>
+  <div id="paperInfo" class="paperinfo dim"></div>
+</header>
+<main>
+  <section id="left">
+    <div class="viewer-toolbar">
+      <button id="pgPrev" title="上一页">◀</button>
+      <span>第 <input id="pgNum" size="3" value="1"> / <span id="pgTotal">?</span> 页</span>
+      <button id="pgNext" title="下一页">▶</button>
+      <label>缩放 <select id="dpiSel">
+        <option value="100">100 dpi</option>
+        <option value="140" selected>140 dpi</option>
+        <option value="200">200 dpi</option>
+      </select></label>
+      <label><input type="checkbox" id="showEv" checked> 证据区域</label>
+      <span id="pageMeta" class="dim"></span>
+    </div>
+    <div id="pageWrap" class="page-wrap">
+      <img id="pageImg" alt="PDF 页面渲染">
+      <svg id="evOverlay" xmlns="http://www.w3.org/2000/svg"></svg>
+      <div id="tooltip" class="tooltip hidden"></div>
+    </div>
+
+    <div class="curve-section">
+      <div class="curve-head">
+        <b>曲线抽取</b>
+        <label>图 <select id="curveSel"></select></label>
+        <span id="curveStatus" class="badge">-</span>
+        <span class="dim" id="curveMeta"></span>
+        <span class="spacer"></span>
+        <button id="btnCurveAccept" class="ok">接受(人工核验)</button>
+        <button id="btnCurveReject" class="bad">驳回</button>
+        <button id="btnCurveUnsure" class="warn">存疑</button>
+      </div>
+      <div class="curve-imgs">
+        <figure><figcaption>原文图区 region</figcaption><img id="cvRegion" alt="figure region"></figure>
+        <figure><figcaption>叠加验证 overlay</figcaption><img id="cvOverlay" alt="overlay"></figure>
+        <figure><figcaption>曲线重绘 redraw</figcaption><img id="cvRedraw" alt="redraw"></figure>
+      </div>
+      <div class="curve-tools">
+        <div class="calib">
+          <div class="row"><b>坐标轴校准</b>
+            <span class="dim">先在 region 图上“拾取”两个已知刻度位置并填入数值</span></div>
+          <div class="row">X轴
+            <select id="xScale"><option value="linear">线性</option><option value="log10">log10</option></select>
+            单位<input id="xUnit" size="5" placeholder="nm">
+            点1<button class="pick" data-pick="x1">拾取</button><span class="pxinfo" id="px_x1">-</span>=<input id="v_x1" size="6" placeholder="值">
+            点2<button class="pick" data-pick="x2">拾取</button><span class="pxinfo" id="px_x2">-</span>=<input id="v_x2" size="6" placeholder="值">
+          </div>
+          <div class="row">Y轴
+            <select id="yScale"><option value="linear">线性</option><option value="log10">log10</option></select>
+            单位<input id="yUnit" size="5" placeholder="K">
+            点1<button class="pick" data-pick="y1">拾取</button><span class="pxinfo" id="px_y1">-</span>=<input id="v_y1" size="6" placeholder="值">
+            点2<button class="pick" data-pick="y2">拾取</button><span class="pxinfo" id="px_y2">-</span>=<input id="v_y2" size="6" placeholder="值">
+          </div>
+          <div class="row">
+            <button id="btnCalib" class="ok">保存校准</button>
+            <button id="btnPickPts">点取数据点</button>
+            <button id="btnClearPick" class="dim">退出点取</button>
+            <span id="pickHint" class="dim"></span>
+          </div>
+        </div>
+        <div class="wpd">
+          <div class="row"><b>WebPlotDigitizer CSV 导入</b>
+            <span class="dim">X,Y 或 X,Y1,Y2 多系列；空单元格自动跳过</span></div>
+          <textarea id="wpdCsv" rows="4" placeholder="X,Y&#10;0,1.0&#10;1,2.1"></textarea>
+          <div class="row">系列名(可空)<input id="wpdSeries" size="10">
+            <button id="btnWpd">导入</button></div>
+        </div>
+        <div id="curveMsg" class="dim"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="right">
+    <nav class="tabs">
+      <button data-tab="data" class="active">数据</button>
+      <button data-tab="detail">详情 / 审核</button>
+      <button data-tab="card">六维学习卡</button>
+      <button data-tab="flags">异常 <span id="flagCount" class="badge">0</span></button>
+      <button data-tab="reviews">审核记录</button>
+    </nav>
+
+    <div id="tab-data" class="tabpane active">
+      <div class="toolbar">
+        <input id="mSearch" placeholder="搜索 quantity / 值 / 单位" size="18">
+        <select id="mStatus">
+          <option value="">全部状态</option>
+          <option value="candidate">candidate</option>
+          <option value="accepted">accepted</option>
+          <option value="rejected">rejected</option>
+          <option value="uncertain">uncertain</option>
+          <option value="needs_human_review">needs_human_review</option>
+        </select>
+        <button id="btnMSearch">过滤</button>
+        <span id="exportBox" class="dim"></span>
+      </div>
+      <div id="samplesBox"></div>
+      <table id="mTable" class="grid">
+        <thead><tr><th>quantity</th><th>原始值</th><th>标准化</th><th>样品</th><th>来源</th><th>方法</th><th>证据</th><th>状态</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div id="tab-detail" class="tabpane">
+      <div id="detailBox" class="dim">在“数据”页选择一条测量</div>
+    </div>
+
+    <div id="tab-card" class="tabpane">
+      <div id="cardBox" class="dim">选择测量后可生成/查看六维学习卡</div>
+    </div>
+
+    <div id="tab-flags" class="tabpane">
+      <h3>未决质量标记</h3>
+      <div id="flagList"></div>
+      <h3>缺失 / 不确定字段（null + 原因，来自抽取运行）</h3>
+      <div id="nullList" class="dim">运行“结构化抽取”后显示</div>
+    </div>
+
+    <div id="tab-reviews" class="tabpane">
+      <table id="revTable" class="grid">
+        <thead><tr><th>时间</th><th>对象</th><th>动作</th><th>复核人</th><th>备注</th><th>变更</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+<div id="toast" class="toast hidden"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

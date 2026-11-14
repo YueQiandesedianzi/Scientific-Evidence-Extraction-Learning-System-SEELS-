@@ -1,0 +1,11 @@
+{
+  "annotator": "human:<name>  (REQUIRED: gold labels must come from a human reading the PDF)",
+  "paper_file": "<pdf file name>",
+  "notes": "How to annotate: open the PDF, read the value AS PRINTED, fill one item per value. quantity: use a canonical name from seels/extraction/schema.py QUANTITY_ALIASES when possible. page: 1-based PDF page. Do NOT convert units - give value+unit exactly as printed. value_std/unit_std are optional if you want to check standardization too.",
+  "items": [
+    {"quantity": "<canonical quantity>", "value": 0.0, "unit": "<as printed>",
+     "sample": "<sample label or omit>", "page": 1, "source": "table",
+     "tolerance_rel": 0.02, "note": "<where in the paper>"}
+  ],
+  "expected_uncertain": []
+}

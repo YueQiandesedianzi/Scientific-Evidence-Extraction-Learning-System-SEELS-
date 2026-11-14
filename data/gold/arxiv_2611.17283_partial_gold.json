@@ -1,0 +1,24 @@
+{
+  "annotator": "session-agent (AI-assisted close reading of the parsed text; PROVISIONAL - requires domain-expert confirmation before use as a benchmark)",
+  "paper_file": "arxiv_2611.17283.pdf",
+  "notes": "Partial gold standard for 'SiC-BN composites with extreme thermal and environmental stability' (arXiv 2611.17283). Items were transcribed from the paper's own text/tables as located by the parser (page 28 methods/results text; page 40 interface-energy table). Values are given EXACTLY as printed. This file intentionally mixes items the rule extractor should find with items it should miss, so the comparison reports an honest recall/error picture.",
+  "items": [
+    {"quantity": "thermal_conductivity", "value": 11.57, "unit": "W/mK", "page": 28,
+     "source": "text", "note": "'At 1500 C the SiC-BN composite's thermal conductivity is 11.57 W/mK'"},
+    {"value": 1850, "unit": "kg/m3", "page": 28, "source": "text",
+     "note": "'measured density rho = 1850 kg/m3' - quantity intentionally omitted: printed symbol rho is ambiguous (density here, not resistivity)"},
+    {"value": 8.9, "unit": "mm", "page": 28, "source": "text",
+     "note": "Gaussian HVOF flux spread '(sigma = 8.9 mm)' - NOT conductivity; symbol ambiguous"},
+    {"value": -1.051549, "page": 40, "source": "table",
+     "note": "interface configuration 'On top of N', Si-terminated column (units not printed in table)"},
+    {"quantity": "heat_flux", "value": 1.21, "unit": "MW/m2", "page": 28, "source": "text",
+     "note": "'absorbed Gaussian flux of 1.21 MW/m2 peak' - expected MISS for rules-v1 (quantity name not in pattern list)"},
+    {"quantity": "specific_heat", "value": 750, "unit": "J/Kg-K", "page": 28, "source": "text",
+     "note": "'specific heat cp = 750 J/Kg-K' - expected MISS (symbol cp not covered)"},
+    {"quantity": "thermal_conductivity", "value": 11.65, "unit": "W/mK", "page": 28, "source": "text",
+     "note": "'thermal conductivity kSiC-BN = 11.65 W/mK' (model input) - expected MISS (symbol form)"},
+    {"quantity": "temperature", "value": 1504, "unit": "C", "page": 28, "source": "text",
+     "note": "'T1 = 1504 C' simulated center temperature - expected MISS (subscript symbol)"}
+  ],
+  "expected_uncertain": []
+}
