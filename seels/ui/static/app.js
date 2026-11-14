@@ -69,9 +69,12 @@ async function loadPapers() {
   if (state.papers.length && !state.paperId) selectPaper(state.papers[0].paper_id);
 }
 async function selectPaper(pid) {
+  var seq = (state.loadSeq = (state.loadSeq || 0) + 1);
   state.paperId = pid;
   $('paperSel').value = pid;
+  $('mTable').querySelector('tbody').innerHTML = '';   // clear stale rows from previous paper
   state.paperInfo = await api('/api/paper?id=' + encodeURIComponent(pid));
+  if (seq !== state.loadSeq) return;                   // a newer selection took over
   var p = state.paperInfo.paper;
   var s = state.paperInfo.summary;
   $('pgTotal').textContent = String(p.n_pages || '?');
@@ -83,6 +86,7 @@ async function selectPaper(pid) {
   state.page = 1;
   $('pgNum').value = '1';
   await Promise.all([loadMeasurements(), loadSamples(), loadCurves(), loadFlags(), loadReviews()]);
+  if (seq !== state.loadSeq) return;
   showPage(1);
 }
 
@@ -92,7 +96,8 @@ function currentPageMeta() {
   return pages[state.page - 1] || null;
 }
 function showPage(n) {
-  var total = (state.paperInfo && state.paperInfo.paper.n_pages) || 1;
+  if (!state.paperInfo || !state.paperInfo.paper) return;   // paper still loading: ignore
+  var total = state.paperInfo.paper.n_pages || 1;
   n = Math.max(1, Math.min(total, n | 0));
   state.page = n;
   $('pgNum').value = String(n);
@@ -440,8 +445,8 @@ async function selectCurve(cid) {
   var c = state.curve;
   var t = Date.now();
   setImg('cvRegion', '/api/curve_image?id=' + encodeURIComponent(cid) + '&kind=region&t=' + t);
-  setImg('cvOverlay', '/api/curve_image?id=' + encodeURIComponent(cid) + '&kind=overlay&t=' + t);
-  setImg('cvRedraw', '/api/curve_image?id=' + encodeURIComponent(cid) + '&kind=redraw&t=' + t);
+  setImgOrPlaceholder('cvOverlay', c.has_overlay, '/api/curve_image?id=' + encodeURIComponent(cid) + '&kind=overlay&t=' + t);
+  setImgOrPlaceholder('cvRedraw', c.has_redraw, '/api/curve_image?id=' + encodeURIComponent(cid) + '&kind=redraw&t=' + t);
   $('curveStatus').textContent = c.verification_status;
   $('curveStatus').className = 'badge ' + c.verification_status;
   $('curveMeta').textContent = 'p' + c.page + ' ' + (c.figure_ref || '') + ' · 方法:' + c.method +
@@ -470,6 +475,13 @@ function setImg(id, src) {
   img.style.opacity = '1';
   img.onerror = function () { img.style.opacity = '0.15'; img.title = '尚未生成'; };
   img.src = src;
+}
+function setImgOrPlaceholder(id, exists, src) {
+  var img = $(id);
+  if (exists) { setImg(id, src); return; }
+  img.removeAttribute('src');
+  img.style.opacity = '0.15';
+  img.title = '尚未生成：完成轴校准并添加数据点（或导入 WPD CSV）后自动出现';
 }
 
 /* ------------------------------------------------------------- tabs & init */

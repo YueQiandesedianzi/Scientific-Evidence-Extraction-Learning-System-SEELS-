@@ -192,6 +192,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def _route_get(self, path: str, q: dict):
         db = get_db()
+        if path == "/favicon.ico":
+            return self._send(204, b"", "image/x-icon")
         if path in ("/", "/index.html"):
             return self._file(STATIC / "index.html", "text/html; charset=utf-8")
         if path.startswith("/static/"):
@@ -260,6 +262,9 @@ class Handler(BaseHTTPRequestHandler):
             cv = db.get_curve(q["id"])
             if not cv:
                 return self._err(404, "unknown curve")
+            base = Path(cv.get("image_path") or "")
+            cv["has_overlay"] = base.with_name(base.stem + "_overlay.png").exists()
+            cv["has_redraw"] = base.with_name(base.stem + "_redraw.png").exists()
             cv["points"] = db.list_curve_points(cv["curve_id"])
             cv["reviews"] = db.list_reviews(target_type="curve", target_id=cv["curve_id"])
             cv["flags"] = db.list_qc_flags(target_type="curve", target_id=cv["curve_id"])
