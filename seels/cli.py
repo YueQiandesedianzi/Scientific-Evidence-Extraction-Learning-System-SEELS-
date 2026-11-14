@@ -93,7 +93,7 @@ def cmd_extract(args, db):
 def cmd_figures(args, db):
     from .curves.figures import extract_figures
     for paper in _resolve_papers(db, args.ref):
-        ids = extract_figures(db, paper["paper_id"])
+        ids = extract_figures(db, paper["paper_id"], use_layout=not args.no_layout)
         print("%s -> %d figure regions" % (paper["paper_id"], len(ids)))
 
 
@@ -185,6 +185,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("figures", help="detect figure regions -> curve records")
     p.add_argument("ref")
+    p.add_argument("--no-layout", action="store_true",
+                   help="skip the docling layout engine; geometric heuristics only")
     p.set_defaults(fn=cmd_figures)
 
     p = sub.add_parser("qc", help="run quality checks")

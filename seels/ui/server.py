@@ -331,7 +331,8 @@ class Handler(BaseHTTPRequestHandler):
                                          limit=int(payload.get("limit", 200)))
             return self._json({"cards": n})
         if path == "/api/figures":
-            ids = cfig.extract_figures(db, payload["paper_id"])
+            ids = cfig.extract_figures(db, payload["paper_id"],
+                                       use_layout=bool(payload.get("use_layout", True)))
             return self._json({"curves": ids, "n": len(ids)})
         if path == "/api/curve_calibration":
             cv = cfig.set_calibration(db, payload["curve_id"], payload["spec"])

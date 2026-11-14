@@ -612,7 +612,7 @@ function initEvents() {
     } catch (e) { toast('抽取失败: ' + e.message); }
   });
   $('btnFigures').addEventListener('click', async function () {
-    toast('正在检测图区…');
+    toast('正在检测图区（首次运行版面引擎需下载权重，可能较慢；请耐心等待）…', 9000);
     try {
       var r = await apiPost('/api/figures', { paper_id: state.paperId });
       toast('图区提取完成: ' + r.n + ' 个候选曲线/图');

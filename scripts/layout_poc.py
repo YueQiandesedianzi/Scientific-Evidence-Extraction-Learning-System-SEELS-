@@ -1,72 +1,32 @@
-"""P1 POC: run docling layout analysis on representative papers and report.
+"""P1 POC: docling layout via the ASCII-path layout venv (subprocess worker).
 
-Measures, per paper: wall time, pages/sec, figure/table block counts vs our
-caption-based regions, and how many of our 73 curve regions would gain a
-layout-derived bbox. Writes data/work/layout_poc.json + prints a summary.
+For representative papers: run scripts/layout_worker.py, then compare docling
+figure blocks against our caption-derived curve regions (IoU), report timing.
+Writes data/work/layout_poc.json and prints a summary table.
 
-Usage:  python scripts/layout_poc.py [paper_id ...]
-Default papers: the vector-figure-heavy one, the image-rich one, the 76-page one.
+Env: SEELS_LAYOUT_PYTHON  (default C:\\Users\\HP\\.seels\\layout-venv\\Scripts\\python.exe)
+     HF_ENDPOINT          (default https://hf-mirror.com for weight download)
 """
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import sys
 import time
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 sys.stdout.reconfigure(encoding="utf-8")
 
 from seels import config
 from seels.db import open_db
-from seels.parsing.pipeline import load_parse
 
+LAYOUT_PY = os.environ.get(
+    "SEELS_LAYOUT_PYTHON", r"C:\Users\HP\.seels\layout-venv\Scripts\python.exe")
+WORKER = ROOT / "scripts" / "layout_worker.py"
 DEFAULT_PAPERS = ["P-aa760664b1f01846", "P-a160c171e15d68f3", "P-455fe33f2b5fab9a"]
-
-
-def convert(pdf_path: str):
-    from docling.document_converter import DocumentConverter, PdfFormatOption
-    from docling.datamodel.base_models import InputFormat
-    from docling.datamodel.pipeline_options import PdfPipelineOptions
-    opts = PdfPipelineOptions()
-    opts.do_ocr = False                 # native PDFs: text layer exists; keep POC fast
-    opts.do_table_structure = True
-    conv = DocumentConverter(
-        format_options={InputFormat.PDF: PdfFormatOption(pipeline_options=opts)})
-    return conv.convert(pdf_path)
-
-
-def blocks_of(doc):
-    """Yield (kind, page_no, bbox_top_left[l,t,r,b]) for pictures and tables."""
-    out = []
-    pages = {p.page_no: p for p in doc.pages.values()} if hasattr(doc.pages, "values") else {}
-
-    def page_h(page_no):
-        p = pages.get(page_no)
-        try:
-            return float(p.size.height)
-        except Exception:
-            return None
-
-    for pic in getattr(doc, "pictures", []) or []:
-        for prov in getattr(pic, "prov", []) or []:
-            bb = prov.bbox
-            try:
-                bb_tl = bb.to_top_left_origin(page_h(prov.page_no) or 792.0)
-            except Exception:
-                bb_tl = bb
-            out.append(("figure", prov.page_no,
-                        [round(bb_tl.l, 1), round(bb_tl.t, 1), round(bb_tl.r, 1), round(bb_tl.b, 1)]))
-    for tb in getattr(doc, "tables", []) or []:
-        for prov in getattr(tb, "prov", []) or []:
-            bb = prov.bbox
-            try:
-                bb_tl = bb.to_top_left_origin(page_h(prov.page_no) or 792.0)
-            except Exception:
-                bb_tl = bb
-            out.append(("table", prov.page_no,
-                        [round(bb_tl.l, 1), round(bb_tl.t, 1), round(bb_tl.r, 1), round(bb_tl.b, 1)]))
-    return out
 
 
 def iou(a, b):
@@ -79,59 +39,71 @@ def iou(a, b):
     return inter / ua if ua > 0 else 0.0
 
 
+def run_worker(pdf: str, out_json: Path) -> dict:
+    env = dict(os.environ)
+    env.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
+    env["PYTHONIOENCODING"] = "utf-8"
+    t0 = time.time()
+    p = subprocess.run([LAYOUT_PY, str(WORKER), "--pdf", pdf, "--out", str(out_json)],
+                       capture_output=True, text=True, encoding="utf-8", env=env,
+                       timeout=3600)
+    dt = time.time() - t0
+    if p.returncode != 0:
+        return {"error": (p.stdout or "")[-400:] + (p.stderr or "")[-1200:], "seconds": dt}
+    return {"json": json.loads(Path(out_json).read_text(encoding="utf-8")),
+            "stdout": (p.stdout or "").strip()[-200:], "seconds": dt}
+
+
 def main():
     pids = sys.argv[1:] or DEFAULT_PAPERS
     db = open_db()
-    report = {"engine": "docling", "papers": []}
-    t_all = time.time()
+    outdir = config.WORK_DIR / "layout"
+    outdir.mkdir(parents=True, exist_ok=True)
+    report = {"engine": "docling (subprocess worker)", "papers": []}
     for pid in pids:
         paper = db.get_paper(pid)
         if not paper:
             print("skip (not ingested):", pid)
             continue
-        t0 = time.time()
-        try:
-            res = convert(paper["source_path"])
-        except Exception as e:
-            report["papers"].append({"paper_id": pid, "error": repr(e)[:300]})
-            print("ERROR", pid, repr(e)[:200])
+        sidecar = outdir / (pid + ".docling.json")
+        r = run_worker(paper["source_path"], sidecar)
+        if "error" in r:
+            print("ERROR", pid, r["error"][-300:])
+            report["papers"].append({"paper_id": pid, "error": r["error"][-600:],
+                                     "seconds": round(r["seconds"], 1)})
             continue
-        dt = time.time() - t0
-        doc = res.document
-        blocks = blocks_of(doc)
-        figs = [b for b in blocks if b[0] == "figure"]
-        tabs = [b for b in blocks if b[0] == "table"]
-        parse = load_parse(pid) or {}
-        caps = [(pg["page_no"], c) for pg in parse.get("pages", [])
-                for c in (pg.get("captions") or []) if c["kind"] == "figure"]
-        curves = [c for c in db.list_curves(pid)]
-        # match each existing curve region to best docling figure block (same page)
+        doc = r["json"]
+        figs = [(pg["page_no"], b["bbox"]) for pg in doc["pages"]
+                for b in pg["blocks"] if b["type"] == "figure"]
+        tabs = [(pg["page_no"], b["bbox"]) for pg in doc["pages"]
+                for b in pg["blocks"] if b["type"] == "table"]
+        curves = db.list_curves(pid)
         matched, ious = 0, []
         for cv in curves:
             best = 0.0
-            for kind, pno, bb in figs:
+            for pno, bb in figs:
                 if pno == cv.get("page") and cv.get("region_bbox"):
                     best = max(best, iou(cv["region_bbox"], bb))
             if best >= 0.5:
                 matched += 1
             ious.append(round(best, 3))
-        row = {"paper_id": pid, "pages": paper.get("n_pages"), "seconds": round(dt, 1),
-               "sec_per_page": round(dt / max(1, paper.get("n_pages") or 1), 2),
+        row = {"paper_id": pid, "pages": paper.get("n_pages"),
+               "worker_seconds": round(r["seconds"], 1),
+               "engine_seconds": doc.get("seconds"),
                "docling_figures": len(figs), "docling_tables": len(tabs),
-               "our_fig_captions": len(caps), "our_curve_regions": len(curves),
-               "regions_with_layout_match_iou>=0.5": matched,
-               "median_iou": sorted(ious)[len(ious) // 2] if ious else None}
+               "our_curve_regions": len(curves),
+               "regions_matched_iou>=0.5": matched,
+               "median_iou": sorted(ious)[len(ious) // 2] if ious else None,
+               "sidecar": str(sidecar)}
         report["papers"].append(row)
         print(json.dumps(row, ensure_ascii=False))
-    report["total_seconds"] = round(time.time() - t_all, 1)
     try:
-        import docling
-        report["docling_version"] = getattr(docling, "__version__", "2.150.0")
+        report["docling_version"] = doc.get("engine_version")
     except Exception:
         pass
-    out = config.WORK_DIR / "layout_poc.json"
-    out.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
-    print("report:", out)
+    outp = config.WORK_DIR / "layout_poc.json"
+    outp.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    print("report:", outp)
 
 
 if __name__ == "__main__":

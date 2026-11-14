@@ -142,7 +142,9 @@ def test_figure_region_extraction(db, synth_pdf):
     from seels.curves.figures import extract_figures
     r = ingest(db, synth_pdf)
     pid = r["paper"]["paper_id"]
-    ids = extract_figures(db, pid)
+    # hermetic: skip the optional docling engine (tested via fake provider in
+    # tests/test_layout.py; the real engine may be present on dev machines)
+    ids = extract_figures(db, pid, use_layout=False)
     assert ids, "synthetic paper has Figure 1 - region must be found"
     cv = db.get_curve(ids[0])
     assert cv["figure_ref"] == "Figure 1" and cv["page"] == 2
@@ -152,5 +154,5 @@ def test_figure_region_extraction(db, synth_pdf):
     assert img.exists() and img.stat().st_size > 1000
     assert cv["verification_status"] == "unverified"   # nothing verified automatically
     # idempotent re-run
-    ids2 = extract_figures(db, pid)
+    ids2 = extract_figures(db, pid, use_layout=False)
     assert ids2 == ids

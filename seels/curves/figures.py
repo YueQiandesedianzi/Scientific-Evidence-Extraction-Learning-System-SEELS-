@@ -1,9 +1,17 @@
 """Figure-region detection + curve record creation + digitizing operations.
 
-Figure regions are detected from parse.json captions ("Figure N") plus nearby
-embedded-image bounding boxes; the region is cropped from a page render at a
-fixed DPI and stored as PNG under WORK_DIR/curves/<paper_id>/. Curve ids are
-deterministic (hash of paper|page|ref|region), so re-running is idempotent.
+Region sources, in priority order:
+  1. layout:docling   - deep layout blocks (seels.layout, subprocess worker),
+                        matched to "Figure N" captions by column overlap +
+                        vertical proximity; unmatched large blocks become
+                        "Unnamed p<n>#<i>" regions;
+  2. embedded_images  - geometric union of raster images above the caption;
+  3. heuristic_fallback - blind box above the caption (flagged in notes + QC).
+Region images are cropped from a page render (derived files only; originals
+untouched). Curve ids are deterministic (hash of paper|page|ref) so ids are
+stable across engines; manual/layout regions are never silently overwritten
+(manual regions are fully protected), and stale untouched legacy regions are
+pruned on re-runs.
 """
 from __future__ import annotations
 
@@ -51,60 +59,191 @@ def _region_for_caption(page: dict, cap: dict):
     return [round(v, 2) for v in region], note
 
 
-def extract_figures(db, paper_id: str, dpi: int = FIGURE_DPI) -> list:
+def _crop_region(paper: dict, page_no: int, region, img_path: Path, dpi: int) -> None:
+    from PIL import Image
+    page_img = render_page_image(paper, page_no, dpi=dpi)
+    im = Image.open(page_img)
+    s = dpi / 72.0
+    crop = im.crop((int(region[0] * s), int(region[1] * s),
+                    int(region[2] * s), int(region[3] * s)))
+    img_path.parent.mkdir(parents=True, exist_ok=True)
+    crop.save(img_path, format="PNG")
+
+
+def _best_block_for_caption(cap: dict, blocks: list, used: set):
+    """Index of the layout figure block that best matches a caption, else None."""
+    cb = cap["bbox"]
+    best, best_score = None, 0.0
+    for i, b in enumerate(blocks):
+        if i in used:
+            continue
+        bb = b.get("bbox")
+        if not bb or len(bb) != 4:
+            continue
+        vgap = cb[1] - bb[3]                 # caption top minus block bottom
+        if vgap < -30 or vgap > 250:
+            continue
+        ox = min(bb[2], cb[2] + 60) - max(bb[0], cb[0] - 60)
+        if ox < 20:
+            continue
+        area = max(1.0, (bb[2] - bb[0]) * (bb[3] - bb[1]))
+        score = (ox / max(1.0, cb[2] - cb[0])
+                 + min(area, 60000.0) / 100000.0
+                 - abs(vgap) / 500.0)
+        if score > best_score:
+            best, best_score = i, score
+    return best
+
+
+def _prune_stale(db, paper_id: str, keep: set) -> int:
+    """Delete untouched legacy regions (old id scheme / superseded heuristics).
+
+    Never deletes regions that are manual/layout-sourced, carry points or a
+    calibration, or have any human review attached.
+    """
+    removed = 0
+    for cv in db.list_curves(paper_id):
+        cid = cv["curve_id"]
+        if cid in keep:
+            continue
+        src = cv.get("region_source") or ""
+        if src == "manual" or src.startswith("layout"):
+            continue
+        if db.list_curve_points(cid) or cv.get("calibration"):
+            continue
+        if db.list_reviews(target_type="curve", target_id=cid):
+            continue
+        img = cv.get("image_path")
+        db.conn().execute("DELETE FROM curves WHERE curve_id=?", (cid,))
+        removed += 1
+        if img:
+            try:
+                base = Path(img)
+                for p in (base, base.with_name(base.stem + "_overlay.png"),
+                          base.with_name(base.stem + "_redraw.png")):
+                    if p.exists():
+                        p.unlink()
+            except OSError:
+                pass
+    db.conn().commit()
+    return removed
+
+
+def extract_figures(db, paper_id: str, dpi: int = FIGURE_DPI,
+                    use_layout: bool = True) -> list:
     paper = db.get_paper(paper_id)
     if not paper:
         raise KeyError(paper_id)
     parse_doc = load_parse(paper_id)
     if not parse_doc:
         raise RuntimeError("paper %s not parsed yet" % paper_id)
+
+    layout_doc = None
+    if use_layout:
+        try:
+            from ..layout.docling_provider import DoclingLayoutProvider
+            prov = DoclingLayoutProvider()
+            if prov.available():
+                layout_doc = prov.analyze(paper)
+                db.log_parse(paper_id, None, "layout:docling", "info", "layout_ready",
+                             "version=%s seconds=%s sha_ok=%s" % (
+                                 layout_doc.get("engine_version"),
+                                 layout_doc.get("seconds"),
+                                 layout_doc.get("pdf_sha256") == paper["sha256"]))
+            else:
+                db.log_parse(paper_id, None, "layout", "info", "layout_unavailable",
+                             "layout venv/worker not found; using geometric heuristics "
+                             "(see requirements-layout.txt / SEELS_LAYOUT_PYTHON)")
+        except Exception as ex:
+            layout_doc = None
+            db.log_parse(paper_id, None, "layout:docling", "warning", "layout_failed",
+                         repr(ex)[:500])
+
+    fig_blocks: dict = {}
+    if layout_doc and layout_doc.get("pdf_sha256") == paper["sha256"]:
+        for pg in layout_doc.get("pages") or []:
+            fig_blocks[pg["page_no"]] = [b for b in pg.get("blocks") or []
+                                         if b.get("type") == "figure"]
+
     out_dir = config.CURVE_DIR / paper_id
     out_dir.mkdir(parents=True, exist_ok=True)
-    created = []
+    created: list = []
+
+    def upsert(curve_id, page_no, ref, region, source, notes_text):
+        existing = db.get_curve(curve_id)
+        prot = (existing or {}).get("region_source") or ""
+        if existing and prot == "manual":
+            created.append(curve_id)        # human decisions are never overwritten
+            return
+        img_path = out_dir / (curve_id + ".png")
+        if (not img_path.exists()) or (existing or {}).get("region_bbox") != region:
+            _crop_region(paper, page_no, region, img_path, dpi)
+        rec = {
+            "curve_id": curve_id, "paper_id": paper_id, "page": page_no,
+            "figure_ref": ref, "image_path": str(img_path),
+            "image_sha256": sha256_bytes(img_path.read_bytes()),
+            "region_bbox": region, "region_source": source,
+            "method": "manual", "series_name": ref,
+            "verification_status": (existing or {}).get("verification_status", "unverified"),
+            "notes": notes_text[:500],
+            "created_at": (existing or {}).get("created_at") or utc_now(),
+        }
+        if existing:
+            db.update_curve(curve_id, page=page_no, figure_ref=ref,
+                            image_path=rec["image_path"], image_sha256=rec["image_sha256"],
+                            region_bbox=region, region_source=source, notes=rec["notes"])
+        else:
+            db.insert_curve(rec)
+        created.append(curve_id)
+
+    def clamp(region, W, H):
+        return [round(max(0.0, region[0]), 2), round(max(0.0, region[1]), 2),
+                round(min(W, region[2]), 2), round(min(H, region[3]), 2)]
+
     for page in parse_doc.get("pages") or []:
+        pno = page["page_no"]
+        W, H = page["width_pts"], page["height_pts"]
+        blocks = fig_blocks.get(pno, [])
+        used: set = set()
         for cap in page.get("captions") or []:
             if cap["kind"] != "figure":
                 continue
-            region, note = _region_for_caption(page, cap)
-            if region is None:
-                db.log_parse(paper_id, page["page_no"], "curves", "warning",
-                             "figure_region_too_small",
-                             "cannot derive region for %s" % cap["ref"])
-                continue
-            key = "%s|%d|%s|%s" % (paper_id, page["page_no"], cap["ref"], jdump(region))
-            curve_id = "C-" + sha256_bytes(key.encode("utf-8"))[:12]
-            source = "heuristic_fallback" if note else "embedded_images"
-            existing = db.get_curve(curve_id)
-            prot = (existing or {}).get("region_source") or ""
-            if existing and (prot == "manual" or prot.startswith("layout")):
-                created.append(curve_id)      # human/engine-set regions are never overwritten
-                continue
-            img_path = out_dir / (curve_id + ".png")
-            if not img_path.exists():
-                page_img = render_page_image(paper, page["page_no"], dpi=dpi)
-                from PIL import Image
-                im = Image.open(page_img)
-                s = dpi / 72.0
-                crop = im.crop((int(region[0] * s), int(region[1] * s),
-                                int(region[2] * s), int(region[3] * s)))
-                crop.save(img_path, format="PNG")
-            rec = {
-                "curve_id": curve_id, "paper_id": paper_id, "page": page["page_no"],
-                "figure_ref": cap["ref"], "image_path": str(img_path),
-                "image_sha256": sha256_bytes(img_path.read_bytes()),
-                "region_bbox": region, "region_source": source,
-                "method": "manual", "series_name": cap["ref"],
-                "verification_status": (existing or {}).get("verification_status", "unverified"),
-                "notes": "; ".join(x for x in [note, cap["text"][:200]] if x),
-                "created_at": (existing or {}).get("created_at") or utc_now(),
-            }
-            if existing:
-                db.update_curve(curve_id, page=rec["page"], figure_ref=rec["figure_ref"],
-                                image_path=rec["image_path"], image_sha256=rec["image_sha256"],
-                                region_bbox=region, region_source=source, notes=rec["notes"])
+            bi = _best_block_for_caption(cap, blocks, used) if blocks else None
+            if bi is not None:
+                used.add(bi)
+                region = clamp(blocks[bi]["bbox"], W, H)
+                source = "layout:docling"
+                note = None
             else:
-                db.insert_curve(rec)
-            created.append(curve_id)
+                region, note = _region_for_caption(page, cap)
+                source = "heuristic_fallback" if note else "embedded_images"
+            if region is None or region[2] - region[0] < 20 or region[3] - region[1] < 20:
+                db.log_parse(paper_id, pno, "curves", "warning", "figure_region_too_small",
+                             "cannot derive region for %s" % cap.get("ref"))
+                continue
+            cid = "C-" + sha256_bytes(
+                ("%s|%d|%s" % (paper_id, pno, cap["ref"])).encode("utf-8"))[:12]
+            upsert(cid, pno, cap["ref"], region, source,
+                   "; ".join(x for x in [note, cap["text"][:200]] if x))
+        for i, b in enumerate(blocks):
+            if i in used:
+                continue
+            bb = b.get("bbox") or [0, 0, 0, 0]
+            if (bb[2] - bb[0]) * (bb[3] - bb[1]) < 5000:
+                continue                    # skip tiny picture blocks (logos, icons)
+            ref = "Unnamed p%d#%d" % (pno, i)
+            region = clamp(bb, W, H)
+            if region[2] - region[0] < 20 or region[3] - region[1] < 20:
+                continue
+            cid = "C-" + sha256_bytes(
+                ("%s|%d|%s" % (paper_id, pno, ref)).encode("utf-8"))[:12]
+            extra = (" label=%s" % b["label"]) if b.get("label") else ""
+            upsert(cid, pno, ref, region, "layout:docling",
+                   "layout block without matched caption;" + extra)
+    n_pruned = _prune_stale(db, paper_id, set(created))
+    if n_pruned:
+        db.log_parse(paper_id, None, "curves", "info", "pruned_stale_regions",
+                     "removed %d untouched legacy figure regions" % n_pruned)
     return created
 
 
