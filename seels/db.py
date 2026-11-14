@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS curves(
   paper_id TEXT NOT NULL REFERENCES papers(paper_id) ON DELETE CASCADE,
   page INTEGER, figure_ref TEXT,
   image_path TEXT, image_sha256 TEXT, region_bbox_json TEXT,
-  calibration_json TEXT, method TEXT, series_name TEXT,
+  region_source TEXT, calibration_json TEXT, method TEXT, series_name TEXT,
   verification_status TEXT DEFAULT 'unverified',
   notes TEXT, created_at TEXT NOT NULL);
 
@@ -160,6 +160,10 @@ class DB:
     def init_schema(self) -> None:
         c = self.conn()
         c.executescript(DDL)
+        # lightweight forward-only migrations
+        cols = [r[1] for r in c.execute("PRAGMA table_info(curves)")]
+        if "region_source" not in cols:
+            c.execute("ALTER TABLE curves ADD COLUMN region_source TEXT")
         c.execute("INSERT OR REPLACE INTO schema_info(key,value) VALUES('version',?)",
                   (config.SCHEMA_VERSION,))
         c.commit()
@@ -467,17 +471,20 @@ class DB:
     def insert_curve(self, cv: dict) -> str:
         self.conn().execute(
             """INSERT INTO curves(curve_id,paper_id,page,figure_ref,image_path,image_sha256,
-               region_bbox_json,calibration_json,method,series_name,verification_status,notes,created_at)
-               VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
+               region_bbox_json,region_source,calibration_json,method,series_name,
+               verification_status,notes,created_at)
+               VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                ON CONFLICT(curve_id) DO UPDATE SET page=excluded.page,
                figure_ref=excluded.figure_ref, image_path=excluded.image_path,
                image_sha256=excluded.image_sha256, region_bbox_json=excluded.region_bbox_json,
+               region_source=excluded.region_source,
                calibration_json=excluded.calibration_json, method=excluded.method,
                series_name=excluded.series_name,
                verification_status=excluded.verification_status, notes=excluded.notes""",
             (cv["curve_id"], cv["paper_id"], cv.get("page"), cv.get("figure_ref", ""),
              cv.get("image_path", ""), cv.get("image_sha256", ""),
-             jdump(cv.get("region_bbox")), jdump(cv.get("calibration")),
+             jdump(cv.get("region_bbox")), cv.get("region_source"),
+             jdump(cv.get("calibration")),
              cv.get("method", "manual"), cv.get("series_name", ""),
              cv.get("verification_status", "unverified"), cv.get("notes", ""),
              cv.get("created_at") or utc_now()))

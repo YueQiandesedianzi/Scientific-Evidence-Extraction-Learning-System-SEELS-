@@ -348,6 +348,10 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(cfig.import_wpd_csv(db, payload["curve_id"],
                                                   payload["csv_text"],
                                                   payload.get("series")))
+        if path == "/api/curve_region":
+            cv = cfig.update_region(db, payload["curve_id"], payload["bbox"],
+                                    reviewer=(payload.get("reviewer") or "anonymous"))
+            return self._json({"curve": cv})
         if path == "/api/flag_resolve":
             db.resolve_flag(int(payload["flag_id"]),
                             (payload.get("reviewer") or "anonymous"))

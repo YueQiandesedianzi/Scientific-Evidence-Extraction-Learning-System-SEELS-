@@ -8,6 +8,7 @@ var state = {
   pageEvidence: [],
   curves: [], curveId: null, curve: null,
   pickMode: null,           // null | 'x1' | 'x2' | 'y1' | 'y2' | 'point'
+  regionMode: false,
   calDraft: { x1: null, x2: null, y1: null, y2: null },
   flags: [], reviews: []
 };
@@ -145,6 +146,7 @@ async function renderOverlay() {
     });
     r.addEventListener('mouseleave', function () { $('tooltip').classList.add('hidden'); });
     r.addEventListener('click', async function () {
+      if (state.regionMode) return;
       var ms = await api('/api/measurements_by_evidence?evidence_id=' + ev.evidence_id);
       if (ms && ms.length) selectMeasurement(ms[0].measurement_id, false);
       else toast('该证据未关联测量（可能属于样品字段或被拒条目）');
@@ -473,7 +475,8 @@ async function selectCurve(cid) {
   $('curveStatus').className = 'badge ' + c.verification_status;
   $('curveMeta').textContent = 'p' + c.page + ' ' + (c.figure_ref || '') + ' · 方法:' + c.method +
     ' · 点数:' + (c.points || []).length + ' · 校准:' + (c.calibration ? '有' : '无') +
-    (c.notes ? ' · ' + c.notes.slice(0, 80) : '');
+    ' · 区域来源:' + (c.region_source || 'n/a') +
+    (c.notes ? ' · ' + c.notes.slice(0, 60) : '');
   // prefill calibration draft
   var cal = c.calibration;
   state.calDraft = { x1: null, x2: null, y1: null, y2: null };
@@ -507,6 +510,70 @@ function setImgOrPlaceholder(id, exists, src) {
 }
 
 /* ------------------------------------------------------------- tabs & init */
+function exitRegionMode() {
+  state.regionMode = false;
+  var svg = $('evOverlay');
+  svg.style.pointerEvents = '';
+  svg.style.cursor = '';
+  var draft = document.getElementById('regionDraft');
+  if (draft && draft.parentNode) draft.parentNode.removeChild(draft);
+  $('regionHint').textContent = '';
+  $('btnRegionEdit').textContent = '调整区域';
+}
+function initRegionEdit() {
+  var svg = $('evOverlay');
+  var start = null;
+  function toPt(ev) {
+    var pt = svg.createSVGPoint();
+    pt.x = ev.clientX; pt.y = ev.clientY;
+    var m = svg.getScreenCTM();
+    if (!m) return null;
+    var p = pt.matrixTransform(m.inverse());
+    return { x: p.x, y: p.y };
+  }
+  svg.addEventListener('mousedown', function (ev) {
+    if (!state.regionMode) return;
+    ev.preventDefault();
+    start = toPt(ev);
+    var old = document.getElementById('regionDraft');
+    if (old && old.parentNode) old.parentNode.removeChild(old);
+    var r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    r.id = 'regionDraft';
+    r.setAttribute('fill', '#2563eb');
+    r.setAttribute('fill-opacity', '0.15');
+    r.setAttribute('stroke', '#2563eb');
+    r.setAttribute('stroke-dasharray', '4 2');
+    r.setAttribute('stroke-width', '1');
+    svg.appendChild(r);
+  });
+  svg.addEventListener('mousemove', function (ev) {
+    if (!state.regionMode || !start) return;
+    var p = toPt(ev);
+    var r = document.getElementById('regionDraft');
+    if (!r || !p) return;
+    r.setAttribute('x', Math.min(start.x, p.x));
+    r.setAttribute('y', Math.min(start.y, p.y));
+    r.setAttribute('width', Math.abs(p.x - start.x));
+    r.setAttribute('height', Math.abs(p.y - start.y));
+  });
+  svg.addEventListener('mouseup', async function (ev) {
+    if (!state.regionMode || !start) return;
+    var p = toPt(ev);
+    var bbox = [Math.min(start.x, p.x), Math.min(start.y, p.y),
+                Math.max(start.x, p.x), Math.max(start.y, p.y)]
+      .map(function (v) { return Math.round(v * 10) / 10; });
+    start = null;
+    if (!p || bbox[2] - bbox[0] < 20 || bbox[3] - bbox[1] < 20) { exitRegionMode(); return; }
+    var ok = window.confirm('将图区调整为 [' + bbox.join(', ') + '] pt ？\n当前校准与数据点将被清空（像素坐标系已改变），需要重新校准。');
+    if (!ok) { exitRegionMode(); return; }
+    try {
+      await apiPost('/api/curve_region', { curve_id: state.curveId, bbox: bbox, reviewer: reviewer() });
+      toast('图区已更新：校准/数据点已重置，请重新校准后数字化');
+      exitRegionMode();
+      await selectCurve(state.curveId);
+    } catch (err) { toast('区域更新失败: ' + err.message); exitRegionMode(); }
+  });
+}
 function switchTab(name) {
   Array.prototype.forEach.call(document.querySelectorAll('.tabs button'), function (b) {
     b.classList.toggle('active', b.dataset.tab === name);
@@ -528,6 +595,7 @@ function initEvents() {
   document.addEventListener('keydown', function (e) {
     var tag = (e.target && e.target.tagName) || '';
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    if (e.key === 'Escape' && state.regionMode) { exitRegionMode(); return; }
     if (e.key === 'ArrowDown' || e.key === 'j') { e.preventDefault(); navMeasurement(+1); }
     else if (e.key === 'ArrowUp' || e.key === 'k') { e.preventDefault(); navMeasurement(-1); }
   });
@@ -602,6 +670,21 @@ function initEvents() {
   });
   $('btnClearPick').addEventListener('click', function () {
     state.pickMode = null; $('pickHint').textContent = '';
+  });
+  initRegionEdit();
+  $('btnRegionEdit').addEventListener('click', function () {
+    if (!state.curve) { toast('请先选择曲线/图'); return; }
+    if (state.regionMode) { exitRegionMode(); return; }
+    if (!state.curve.page) { toast('该曲线缺少页码信息'); return; }
+    state.regionMode = true;
+    state.pickMode = null;
+    $('pickHint').textContent = '';
+    showPage(state.curve.page);
+    var svg = $('evOverlay');
+    svg.style.pointerEvents = 'auto';
+    svg.style.cursor = 'crosshair';
+    $('regionHint').textContent = '区域编辑模式：在左侧页面图上按住拖拽框选新区域（Esc 退出）';
+    $('btnRegionEdit').textContent = '退出区域编辑';
   });
   $('cvRegion').addEventListener('click', async function (e) {
     if (!state.pickMode || !state.curveId) return;

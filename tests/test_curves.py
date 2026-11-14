@@ -102,6 +102,41 @@ def test_llm_and_auto_points_never_verified(db, synth_plot):
         F.import_auto_points(db, cid, [(0, 1)], source="manual")
 
 
+def test_manual_region_update(db, synth_pdf):
+    from pathlib import Path
+    from seels.parsing.pipeline import ingest
+    from seels.curves.figures import (add_manual_points, extract_figures,
+                                      set_calibration, update_region)
+    r = ingest(db, synth_pdf)
+    pid = r["paper"]["paper_id"]
+    cid = extract_figures(db, pid)[0]
+    cv = db.get_curve(cid)
+    set_calibration(db, cid, {"axes": {
+        "x": {"scale": "linear",
+              "points": [{"px": 0, "py": 0, "value": 0}, {"px": 100, "py": 0, "value": 1}]},
+        "y": {"scale": "linear",
+              "points": [{"px": 0, "py": 100, "value": 0}, {"px": 0, "py": 0, "value": 1}]}}})
+    add_manual_points(db, cid, [[50, 50]])
+    assert len(db.list_curve_points(cid)) >= 1
+    b = cv["region_bbox"]
+    cv2 = update_region(db, cid, [b[0] + 5, b[1] + 5, b[2] - 5, b[3] - 5], reviewer="tester")
+    assert cv2["region_source"] == "manual"
+    assert cv2["calibration"] is None
+    assert db.list_curve_points(cid) == []
+    assert cv2["verification_status"] == "unverified"
+    assert Path(cv2["image_path"]).exists()
+    revs = db.list_reviews(target_type="curve", target_id=cid)
+    assert revs and revs[0]["action"] == "modify" and revs[0]["reviewer"] == "tester"
+    assert revs[0]["old_value"]["had_calibration"] is True
+    # manual region survives a figures re-run
+    extract_figures(db, pid)
+    cv3 = db.get_curve(cid)
+    assert cv3["region_source"] == "manual" and cv3["region_bbox"] == cv2["region_bbox"]
+    # tiny regions rejected
+    with pytest.raises(ValueError):
+        update_region(db, cid, [10, 10, 15, 15])
+
+
 def test_figure_region_extraction(db, synth_pdf):
     from seels.parsing.pipeline import ingest
     from seels.curves.figures import extract_figures
@@ -111,6 +146,7 @@ def test_figure_region_extraction(db, synth_pdf):
     assert ids, "synthetic paper has Figure 1 - region must be found"
     cv = db.get_curve(ids[0])
     assert cv["figure_ref"] == "Figure 1" and cv["page"] == 2
+    assert cv["region_source"] in ("embedded_images", "heuristic_fallback")
     from pathlib import Path
     img = Path(cv["image_path"])
     assert img.exists() and img.stat().st_size > 1000

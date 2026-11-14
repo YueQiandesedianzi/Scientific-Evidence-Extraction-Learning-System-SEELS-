@@ -1,0 +1,13 @@
+# Optional layout-engine extras (docs/06 plan). Core MVP does NOT need these.
+# Install into the same venv when you want deep layout analysis / scan OCR.
+
+# P1/P2b: primary layout engine for native PDFs (figure/table blocks with bbox)
+docling==2.150.0
+
+# P4: scanned-PDF OCR engine (basic tier weights ~0.9GB downloaded on first use)
+# mineru==4.2.2
+
+# Notes:
+# - torch CPU wheels are pulled in by docling (~2-3GB total with weights on first parse).
+# - China mainland: set HF_ENDPOINT=https://hf-mirror.com before first run to fetch weights.
+# - Offline/air-gapped: pre-download weights and point docling artifacts_path at them.
