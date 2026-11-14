@@ -41,6 +41,44 @@ def _find_middle_json(root: Path):
     return None, None
 
 
+def _extract_units_from_middle(mj):
+    """Schema-aware walk of MinerU middle_json (verified 2026-11-15, mineru 4.2.2):
+    pages[] -> {page_idx (0-based), blocks[]}; block: {type, bbox [0,1] normalized
+    top-left, content: [{type:'text', content:'...'} | nested lists]}.
+    """
+    units = []
+
+    def gather_texts(node, acc):
+        if isinstance(node, dict):
+            c = node.get("content")
+            if isinstance(c, str):
+                if c.strip():
+                    acc.append(c.strip())
+            elif c is not None:
+                gather_texts(c, acc)
+            for k, v in node.items():
+                if k == "content":
+                    continue
+                if isinstance(v, (list, dict)):
+                    gather_texts(v, acc)
+        elif isinstance(node, list):
+            for v in node:
+                gather_texts(v, acc)
+
+    for page in mj.get("pages") or []:
+        pidx = page.get("page_idx")
+        for blk in page.get("blocks") or []:
+            bbox = blk.get("bbox")
+            if not bbox or len(bbox) != 4:
+                continue
+            acc = []
+            gather_texts(blk, acc)
+            text = " ".join(acc)
+            if text.strip():
+                units.append((text.strip(), [float(v) for v in bbox], pidx))
+    return units
+
+
 def _harvest_text_units(node, page_idx=None, out=None):
     """Defensive recursive harvest of (text, bbox4, page_idx) from middle json."""
     if out is None:
@@ -165,7 +203,10 @@ def main() -> int:
     if a.pages:
         want_pages = {int(x) for x in a.pages.split(",") if x.strip().isdigit()}
 
-    units = _harvest_text_units(mj.get("pages") if isinstance(mj.get("pages"), list) else mj)
+    units = _extract_units_from_middle(mj)
+    if not units:
+        # generic fallback for schema drift
+        units = _harvest_text_units(mj.get("pages") if isinstance(mj.get("pages"), list) else mj)
     by_page = {}
     for text, bbox, pidx in units:
         if pidx is None:

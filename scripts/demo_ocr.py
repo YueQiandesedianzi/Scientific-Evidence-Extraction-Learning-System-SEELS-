@@ -1,4 +1,4 @@
-"""P4 end-to-end demo: real MinerU OCR on a simulated scanned paper.
+r"""P4 end-to-end demo: real MinerU OCR on a simulated scanned paper.
 
 Self-contained: builds the synthetic paper (tests/conftest._build_synth),
 renders page 1 into an image-only PDF (simulated scan), ingests it, runs the
